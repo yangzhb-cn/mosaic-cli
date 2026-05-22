@@ -18,17 +18,19 @@ class ToolsTest {
     @Test
     void allToolsExposeSchemas() {
         List<Tools.Tool> tools = Tools.all(null);
-        assertEquals(7, tools.size());
+        assertEquals(11, tools.size());
         for (Tools.Tool t : tools) {
             Map<String, Object> schema = t.schema();
             assertEquals("function", schema.get("type"));
-            assertTrue(((Map<?, ?>) schema.get("function")).containsKey("parameters"));
+            Map<?, ?> fn = (Map<?, ?>) schema.get("function");
+            assertTrue(fn.containsKey("parameters"));
+            assertEquals(false, ((Map<?, ?>) fn.get("parameters")).get("additionalProperties"));
         }
     }
 
     @Test
     void bashRunsCommandsAndBlocksDangerousCommands() {
-        Tools.Tool bash = Tools.get(Tools.all(null), "bash");
+        Tools.Tool bash = Tools.get(Tools.all(null), "Bash");
         assertNotNull(bash);
         assertTrue(bash.execute(Map.of("command", "echo hello")).contains("hello"));
         assertTrue(bash.execute(Map.of("command", "rm -rf /")).contains("Blocked"));
@@ -39,14 +41,14 @@ class ToolsTest {
         List<Tools.Tool> tools = Tools.all(null);
         Path file = temp.resolve("sample.txt");
 
-        assertTrue(Tools.get(tools, "write_file").execute(Map.of(
+        assertTrue(Tools.get(tools, "Write").execute(Map.of(
                 "file_path", file.toString(),
                 "content", "alpha\nbeta\n"
         )).contains("Wrote"));
 
-        assertTrue(Tools.get(tools, "read_file").execute(Map.of("file_path", file.toString())).contains("1\talpha"));
+        assertTrue(Tools.get(tools, "Read").execute(Map.of("file_path", file.toString())).contains("1\talpha"));
 
-        String edited = Tools.get(tools, "edit_file").execute(Map.of(
+        String edited = Tools.get(tools, "Edit").execute(Map.of(
                 "file_path", file.toString(),
                 "old_string", "beta",
                 "new_string", "gamma"
@@ -61,30 +63,75 @@ class ToolsTest {
     void editRequiresUniqueMatch() throws Exception {
         Path file = temp.resolve("dup.txt");
         Files.writeString(file, "x\nx\n");
-        String out = Tools.get(Tools.all(null), "edit_file").execute(Map.of(
+        String out = Tools.get(Tools.all(null), "Edit").execute(Map.of(
                 "file_path", file.toString(),
                 "old_string", "x",
                 "new_string", "y"
         ));
-        assertTrue(out.contains("2 times"));
+        assertTrue(out.contains("expected 1 replacements but found 2"));
     }
 
     @Test
-    void globAndGrepFindFiles() throws Exception {
+    void globGrepAndLsFindFiles() throws Exception {
         Path file = temp.resolve("note.txt");
         Files.writeString(file, "hello needle\n");
-        assertTrue(Tools.get(Tools.all(null), "glob").execute(Map.of(
+        assertTrue(Tools.get(Tools.all(null), "Glob").execute(Map.of(
                 "pattern", "*.txt",
                 "path", temp.toString()
         )).contains("note.txt"));
-        assertTrue(Tools.get(Tools.all(null), "grep").execute(Map.of(
+        assertTrue(Tools.get(Tools.all(null), "Grep").execute(Map.of(
                 "pattern", "needle",
                 "path", temp.toString()
         )).contains("note.txt"));
+        assertTrue(Tools.get(Tools.all(null), "LS").execute(Map.of(
+                "path", temp.toString()
+        )).contains("note.txt"));
+        assertTrue(Tools.get(Tools.all(null), "LS").execute(Map.of(
+                "path", "."
+        )).contains("绝对路径"));
+    }
+
+    @Test
+    void multiEditAppliesEditsAtomically() throws Exception {
+        Path file = temp.resolve("multi.txt");
+        Files.writeString(file, "alpha\nbeta\nbeta\n");
+
+        String failed = Tools.get(Tools.all(null), "MultiEdit").execute(Map.of(
+                "file_path", file.toString(),
+                "edits", List.of(Map.of(
+                        "old_string", "beta",
+                        "new_string", "gamma",
+                        "expected_replacements", 1
+                ))
+        ));
+        assertTrue(failed.contains("expected 1 replacements but found 2"));
+        assertEquals("alpha\nbeta\nbeta\n", Files.readString(file));
+
+        String edited = Tools.get(Tools.all(null), "MultiEdit").execute(Map.of(
+                "file_path", file.toString(),
+                "edits", List.of(
+                        Map.of("old_string", "alpha", "new_string", "one"),
+                        Map.of("old_string", "beta", "new_string", "two", "expected_replacements", 2)
+                )
+        ));
+        assertTrue(edited.contains("Applied 2 edits"));
+        assertEquals("one\ntwo\ntwo\n", Files.readString(file));
+    }
+
+    @Test
+    void todoToolsStoreSessionTodos() {
+        List<Map<String, Object>> todos = List.of(Map.of(
+                "id", "1",
+                "content", "test todo",
+                "status", "in_progress",
+                "priority", "high"
+        ));
+        assertTrue(Tools.get(Tools.all(null), "TodoWrite").execute(Map.of("todos", todos)).contains("1"));
+        assertTrue(Tools.get(Tools.all(null), "TodoRead").execute(Map.of()).contains("test todo"));
     }
 
     @Test
     void agentToolNeedsParentAgent() {
-        assertTrue(Tools.get(Tools.all(null), "agent").execute(Map.of("task", "x")).contains("not initialized"));
+        assertTrue(Tools.get(Tools.all(null), "Task").execute(Map.of("task", "x")).contains("not initialized"));
     }
 }

@@ -7,17 +7,17 @@ import java.util.Map;
 
 public final class ReadFileTool extends ToolBase {
     @Override
-    public String name() { return "read_file"; }
+    public String name() { return "Read"; }
 
     @Override
-    public String description() { return "Read a file's contents with line numbers."; }
+    public String description() { return "读取文件内容，并带行号返回。"; }
 
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "file_path", prop("string", "Path to the file"),
-                "offset", prop("integer", "Start line (1-based). Default 1."),
-                "limit", prop("integer", "Max lines to read. Default 2000.")
+                "file_path", prop("string", "要读取的文件路径"),
+                "offset", prop("integer", "起始行号，从 1 开始，默认 1"),
+                "limit", prop("integer", "最多读取行数，默认 2000")
         ), "file_path");
     }
 

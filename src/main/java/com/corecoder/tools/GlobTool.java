@@ -10,16 +10,16 @@ import java.util.Map;
 
 public final class GlobTool extends ToolBase {
     @Override
-    public String name() { return "glob"; }
+    public String name() { return "Glob"; }
 
     @Override
-    public String description() { return "Find files matching a glob pattern."; }
+    public String description() { return "按 glob 模式快速查找文件。"; }
 
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "pattern", prop("string", "Glob pattern, e.g. '**/*.py'"),
-                "path", prop("string", "Directory to search in (default: cwd)")
+                "pattern", prop("string", "glob 模式，例如 '**/*.py'"),
+                "path", prop("string", "搜索目录，默认当前工作目录")
         ), "pattern");
     }
 

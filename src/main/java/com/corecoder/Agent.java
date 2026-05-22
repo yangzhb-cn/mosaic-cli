@@ -63,7 +63,7 @@ public class Agent {
 
     public String runSubAgent(String task, int maxRounds) throws Exception {
         List<Tools.Tool> subTools = tools.stream()
-                .filter(t -> !"agent".equals(t.name()))
+                .filter(t -> !"Task".equals(t.name()))
                 .toList();
         Agent sub = new Agent(llm, subTools, context.maxTokens, maxRounds);
         return sub.chat(task, null, null);

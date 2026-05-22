@@ -51,7 +51,7 @@ class LlmClientTest {
     @Test
     void parsesChunkedToolCallArguments() throws Exception {
         String body = """
-                data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"read_file","arguments":"{\\\"file_"}}]}}]}
+                data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"Read","arguments":"{\\\"file_"}}]}}]}
 
                 data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"path\\\":\\\"a.txt\\\"}"}}]}}]}
 
@@ -65,7 +65,7 @@ class LlmClientTest {
 
         assertEquals(1, r.toolCalls().size());
         assertEquals("call_1", r.toolCalls().getFirst().id());
-        assertEquals("read_file", r.toolCalls().getFirst().name());
+        assertEquals("Read", r.toolCalls().getFirst().name());
         assertEquals("a.txt", r.toolCalls().getFirst().arguments().get("file_path"));
     }
 

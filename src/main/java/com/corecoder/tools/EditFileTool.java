@@ -7,17 +7,18 @@ import java.util.Map;
 
 public final class EditFileTool extends ToolBase {
     @Override
-    public String name() { return "edit_file"; }
+    public String name() { return "Edit"; }
 
     @Override
-    public String description() { return "Edit a file by replacing an exact unique string match."; }
+    public String description() { return "通过精确字符串替换编辑文件，并校验替换次数。"; }
 
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "file_path", prop("string", "Path to the file to edit"),
-                "old_string", prop("string", "Exact text to find"),
-                "new_string", prop("string", "Replacement text")
+                "file_path", prop("string", "要编辑的文件路径"),
+                "old_string", prop("string", "要查找的精确文本"),
+                "new_string", prop("string", "用于替换的新文本"),
+                "expected_replacements", prop("integer", "期望替换次数，默认 1")
         ), "file_path", "old_string", "new_string");
     }
 
@@ -27,14 +28,14 @@ public final class EditFileTool extends ToolBase {
             String file = str(args, "file_path", "");
             String oldString = str(args, "old_string", "");
             String newString = str(args, "new_string", "");
+            int expected = integer(args, "expected_replacements", 1);
             Path p = path(file);
             if (!Files.exists(p)) return "Error: " + file + " not found";
             String old = Files.readString(p);
             int count = count(old, oldString);
             if (count == 0) return "Error: old_string not found in " + file + ".\nFile starts with:\n" + old.substring(0, Math.min(500, old.length()));
-            if (count > 1) return "Error: old_string appears " + count + " times in " + file + ". Include more surrounding lines to make it unique.";
-            int at = old.indexOf(oldString);
-            String next = old.substring(0, at) + newString + old.substring(at + oldString.length());
+            if (count != expected) return "Error: expected " + expected + " replacements but found " + count;
+            String next = old.replace(oldString, newString);
             Files.writeString(p, next);
             Tools.markChanged(p);
             return "Edited " + file + "\n" + diff(old, next, p.toString());

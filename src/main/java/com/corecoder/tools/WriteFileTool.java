@@ -6,14 +6,14 @@ import java.util.Map;
 
 public final class WriteFileTool extends ToolBase {
     @Override
-    public String name() { return "write_file"; }
+    public String name() { return "Write"; }
     @Override
-    public String description() { return "Create a new file or completely overwrite an existing one."; }
+    public String description() { return "创建新文件，或完整覆盖已有文件。"; }
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "file_path", prop("string", "Path for the file"),
-                "content", prop("string", "Full file content to write")
+                "file_path", prop("string", "要写入的文件路径"),
+                "content", prop("string", "要写入的完整文件内容")
         ), "file_path", "content");
     }
     @Override

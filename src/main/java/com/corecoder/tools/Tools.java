@@ -1,15 +1,20 @@
 package com.corecoder.tools;
 
 import com.corecoder.Agent;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 public final class Tools {
+    private static final ObjectMapper JSON = new ObjectMapper();
     private static final Set<String> CHANGED = new LinkedHashSet<>();
+    private static final List<Map<String, Object>> TODOS = new ArrayList<>();
 
     private Tools() {
     }
@@ -32,11 +37,15 @@ public final class Tools {
     public static List<Tool> all(Agent parent) {
         return List.of(
                 new BashTool(),
-                new ReadFileTool(),
-                new WriteFileTool(),
-                new EditFileTool(),
                 new GlobTool(),
                 new GrepTool(),
+                new LsTool(),
+                new ReadFileTool(),
+                new EditFileTool(),
+                new MultiEditTool(),
+                new WriteFileTool(),
+                new TodoReadTool(),
+                new TodoWriteTool(),
                 new AgentTool(parent)
         );
     }
@@ -56,5 +65,22 @@ public final class Tools {
 
     public static void markChanged(Path path) {
         CHANGED.add(path.toString());
+    }
+
+    public static void replaceTodos(List<Map<String, Object>> todos) {
+        TODOS.clear();
+        TODOS.addAll(todos);
+    }
+
+    public static int todoCount() {
+        return TODOS.size();
+    }
+
+    public static String todosJson() {
+        try {
+            return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(TODOS);
+        } catch (JsonProcessingException e) {
+            return "[]";
+        }
     }
 }

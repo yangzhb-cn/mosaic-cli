@@ -25,16 +25,16 @@ public final class BashTool extends ToolBase {
     private static Path cwd;
 
     @Override
-    public String name() { return "bash"; }
+    public String name() { return "Bash"; }
 
     @Override
-    public String description() { return "Execute a shell command. Returns stdout, stderr, and exit code."; }
+    public String description() { return "执行 shell 命令，返回 stdout、stderr 和退出码。"; }
 
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "command", prop("string", "The shell command to run"),
-                "timeout", prop("integer", "Timeout in seconds (default 120)")
+                "command", prop("string", "要运行的 shell 命令"),
+                "timeout", prop("integer", "超时时间，单位秒，默认 120")
         ), "command");
     }
 

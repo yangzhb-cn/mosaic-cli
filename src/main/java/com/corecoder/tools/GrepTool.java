@@ -15,17 +15,17 @@ public final class GrepTool extends ToolBase {
     private static final Set<String> SKIP = Set.of(".git", "node_modules", "__pycache__", ".venv", "venv", ".tox", "dist", "build", "target");
 
     @Override
-    public String name() { return "grep"; }
+    public String name() { return "Grep"; }
 
     @Override
-    public String description() { return "Search file contents with regex."; }
+    public String description() { return "使用正则表达式搜索文件内容。"; }
 
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "pattern", prop("string", "Regex pattern to search for"),
-                "path", prop("string", "File or directory to search (default: cwd)"),
-                "include", prop("string", "Only search files matching this glob")
+                "pattern", prop("string", "要搜索的正则表达式"),
+                "path", prop("string", "要搜索的文件或目录，默认当前工作目录"),
+                "include", prop("string", "只搜索匹配该 glob 的文件")
         ), "pattern");
     }
 
