@@ -1,7 +1,7 @@
 package com.corecoder.cli;
 
 /**
- * MisaicCoder 启动 Banner。
+ * MisaicCoder 启动 Banner
  */
 public final class CliBanner {
     private static final String RESET = "\u001B[0m";
@@ -13,8 +13,9 @@ public final class CliBanner {
     private CliBanner() {
     }
 
+    // 打印Banner
     public static void print(String version, String model) {
-        String meta = "v" + version + "  模型: " + model;
+        String meta = "🔞" + version + "  模型: " + model;
         int width = Math.max(MIN_RULE_WIDTH, visualWidth(meta) + 3);
         if (isColorEnabled()) {
             printColorBanner(meta, width);
