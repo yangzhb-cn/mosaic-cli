@@ -15,10 +15,12 @@ public class Agent {
     final LlmClient llm;
     final List<Tools.Tool> tools;
     public final ContextManager context;
+    // 对话消息历史
     public final List<Map<String, Object>> messages = new ArrayList<>();
     private final int maxRounds;
     private final String system;
 
+    // 通用 Agent
     public Agent(LlmClient llm, int maxContextTokens) {
         this.llm = llm;
         this.context = new ContextManager(maxContextTokens);
@@ -28,6 +30,7 @@ public class Agent {
         this.system = Prompt.systemPrompt(tools);
     }
 
+    //  子 Agen 构造函数
     Agent(LlmClient llm, List<Tools.Tool> tools, int maxContextTokens, int maxRounds) {
         this.llm = llm;
         this.tools = tools;
@@ -107,18 +110,23 @@ public class Agent {
         return results;
     }
 
+    // 清空对话历史
     public void reset() {
         messages.clear();
     }
 
+    // 运行一个子 Agent 来处理某个任务
     public String runSubAgent(String task, int maxRounds) throws Exception {
         List<Tools.Tool> subTools = tools.stream()
+                // 从当前工具列表里过滤掉名为 "Task" 的工具
                 .filter(t -> !"Task".equals(t.name()))
                 .toList();
         Agent sub = new Agent(llm, subTools, context.maxTokens, maxRounds);
+        // 让子 Agent 执行任务，且不给 token 回调、工具回调
         return sub.chat(task, null, null);
     }
 
+    // 构造发送给 LLM 的完整消息列表
     private List<Map<String, Object>> fullMessages() {
         List<Map<String, Object>> all = new ArrayList<>();
         all.add(Map.of("role", "system", "content", system));
@@ -126,17 +134,24 @@ public class Agent {
         return all;
     }
 
+    // 所有工具转换成 schema 列表
     private List<Map<String, Object>> toolSchemas() {
         return tools.stream().map(Tools.Tool::schema).toList();
     }
 
+    // 执行单个工具
     private String exec(LlmClient.ToolCall tc, BiConsumer<String, Map<String, Object>> onTool) {
+        // 如果有工具回调，就先通知外部clicommands
         if (onTool != null) onTool.accept(tc.name(), tc.arguments());
+        // 根据工具名从工具列表里查找实际工具对象
         Tools.Tool tool = Tools.get(tools, tc.name());
         if (tool == null) return "错误: 未知工具 '" + tc.name() + "'";
         try {
+            // 执行工具，如果执行成功，返回工具结果字符串
             return tool.execute(tc.arguments());
         } catch (Exception e) {
+            // 如果异常，返回格式化错误信息，而不是直接抛出异常
+            // 这样可以让模型看到工具失败原因，并尝试修正
             return "错误: 执行工具 " + tc.name() + " 失败: " + e.getMessage();
         }
     }
