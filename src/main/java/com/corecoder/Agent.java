@@ -35,26 +35,46 @@ public class Agent {
         this.system = Prompt.systemPrompt(tools);
     }
 
+    // Agent 的主入口
     public String chat(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool) throws Exception {
+        // 1. 把用户消息加入历史
         messages.add(Map.of("role", "user", "content", userInput));
+        // 2. 检查当前消息是否太长
         context.maybeCompress(messages, llm);
+        // 3. 开始最多 maxRounds 轮的“模型 -> 工具 -> 模型”循环
         for (int i = 0; i < maxRounds; i++) {
+            // 收集模型本轮生成的普通文本内容
             StringBuilder text = new StringBuilder();
+
+            // 4. 调用大模型: 完整消息，包括 system prompt;工具 schema 列表;把流式返回的文本不断追加到 text
             LlmClient.Response r = llm.chat(fullMessages(), toolSchemas(), text::append);
+            
+            // 5a. 没有要求调用任何工具
             if (r.toolCalls().isEmpty()) {
+                // 把模型回复加入消息历史。
                 messages.add(r.message());
+                // 如果有流式回调，并且文本不为空，就把完整文本传给回调
                 if (onToken != null && !text.isEmpty()) onToken.accept(text.toString());
+                // 返回模型的最终内容，结束 chat
                 return r.content();
             }
+
+            // 5b. 模型请求调用工具的情况
+            // 包含工具调用指令tool_calls
             messages.add(r.message());
+
+            // 如果只有一个工具调用,直接执行 exec(...);如果有多个工具调用：并行执行 execParallel(...)
             List<String> results = r.toolCalls().size() == 1 ? List.of(exec(r.toolCalls().getFirst(), onTool)) : execParallel(r.toolCalls(), onTool);
+            // 遍历每一个工具调用，把执行结果写回消息历史
             for (int j = 0; j < r.toolCalls().size(); j++) {
+                // 使用 LinkedHashMap 是为了保持字段插入顺序，方便调试或序列化时更稳定
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("role", "tool");
                 m.put("tool_call_id", r.toolCalls().get(j).id());
                 m.put("content", results.get(j));
                 messages.add(m);
             }
+            // 工具执行完之后，再检查一次消息是否过长。因为工具结果也可能很长
             context.maybeCompress(messages, llm);
         }
         return "(已达到最大工具调用轮数)";

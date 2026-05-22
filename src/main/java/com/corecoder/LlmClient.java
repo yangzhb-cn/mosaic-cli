@@ -77,7 +77,7 @@ public class LlmClient {
 
     // 核心请求方法
     private Response request(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, boolean includeUsage) throws IOException {
-        // body 是要发给 LLM API 的 JSON 请求体
+        // 1. 构造请求体
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("model", model);
         body.put("messages", messages);
@@ -88,7 +88,7 @@ public class LlmClient {
         // 要求流式返回中附带 token 用量信息
         if (includeUsage) body.put("stream_options", Map.of("include_usage", true));
 
-        // 构造 HTTP 请求
+        // 2. 构造 HTTP 请求
         Request req = new Request.Builder()
                 .url(endpoint())
                 .header("Authorization", "Bearer " + apiKey)
@@ -96,7 +96,7 @@ public class LlmClient {
                 .post(RequestBody.create(toJson(body), JSON_TYPE))
                 .build();
 
-        // 同步执行请求并检查响应
+        // 3. 同步执行请求并检查响应
         try (okhttp3.Response res = http.newCall(req).execute()) {
             if (!res.isSuccessful()) throw new IOException("LLM HTTP " + res.code() + ": " + (res.body() == null ? "" : res.body().string()));
             if (res.body() == null) throw new IOException("LLM 响应为空");
