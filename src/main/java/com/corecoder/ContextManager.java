@@ -93,7 +93,7 @@ public class ContextManager {
                 LlmClient.Response r = llm.chat(List.of(
                         Map.of("role", "system", "content", "把这段对话压缩成简短摘要。保留文件路径、决策、错误和当前任务状态。"),
                         Map.of("role", "user", "content", flatten(messages, 15000))
-                ), null, null);
+                ), null, null, null);
                 if (!r.content().isBlank()) return r.content();
             } catch (Exception ignored) {
             }

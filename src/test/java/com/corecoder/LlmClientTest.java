@@ -38,7 +38,7 @@ class LlmClientTest {
         LlmClient llm = new LlmClient("test-model", "key", url, 0);
         List<String> tokens = new ArrayList<>();
 
-        LlmClient.Response r = llm.chat(List.of(Map.of("role", "user", "content", "hi")), null, tokens::add);
+        LlmClient.Response r = llm.chat(List.of(Map.of("role", "user", "content", "hi")), null, tokens::add, null);
 
         assertEquals("hello world", r.content());
         assertEquals(List.of("hello ", "world"), tokens);
@@ -61,8 +61,39 @@ class LlmClientTest {
         String url = startServer(body);
         LlmClient llm = new LlmClient("test-model", "key", url, 0);
 
-        LlmClient.Response r = llm.chat(List.of(Map.of("role", "user", "content", "hi")), List.of(), null);
+        LlmClient.Response r = llm.chat(List.of(Map.of("role", "user", "content", "hi")), List.of(), null, null);
 
+        assertEquals(1, r.toolCalls().size());
+        assertEquals("call_1", r.toolCalls().getFirst().id());
+        assertEquals("Read", r.toolCalls().getFirst().name());
+        assertEquals("a.txt", r.toolCalls().getFirst().arguments().get("file_path"));
+    }
+
+    @Test
+    void notifiesWhenStreamingToolArgumentsAreComplete() throws Exception {
+        // 第一段只给出部分 arguments，此时还不能触发工具就绪。
+        String body = """
+                data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"Read","arguments":"{\\\"file_"}}]}}]}
+
+                data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"path\\\":\\\"a.txt\\\"}"}}]}}]}
+
+                data: [DONE]
+
+                """;
+        // 启动一个本地 SSE 假服务。
+        String url = startServer(body);
+        // 构造测试 LLM 客户端。
+        LlmClient llm = new LlmClient("test-model", "key", url, 0);
+        // 记录 tool-ready 回调收到的工具信息。
+        List<String> ready = new ArrayList<>();
+
+        // 第二段 arguments 拼完后，应立即触发 tool-ready 回调。
+        LlmClient.Response r = llm.chat(List.of(Map.of("role", "user", "content", "hi")), List.of(), null,
+                (idx, tc) -> ready.add(idx + ":" + tc.name() + ":" + tc.arguments().get("file_path")));
+
+        // 回调只触发一次，并携带完整参数。
+        assertEquals(List.of("0:Read:a.txt"), ready);
+        // 最终 Response 仍然保留完整 tool_calls。
         assertEquals(1, r.toolCalls().size());
         assertEquals("call_1", r.toolCalls().getFirst().id());
         assertEquals("Read", r.toolCalls().getFirst().name());
@@ -82,7 +113,7 @@ class LlmClientTest {
         String url = startServer(body);
         LlmClient llm = new LlmClient("test-model", "key", url, 0);
 
-        LlmClient.Response r = llm.chat(List.of(Map.of("role", "user", "content", "hi")), null, null);
+        LlmClient.Response r = llm.chat(List.of(Map.of("role", "user", "content", "hi")), null, null, null);
 
         assertEquals("回答", r.content());
         assertEquals("思考", r.reasoningContent());
