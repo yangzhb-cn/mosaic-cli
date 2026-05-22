@@ -21,6 +21,7 @@ public class Agent {
     public Agent(LlmClient llm, int maxContextTokens) {
         this.llm = llm;
         this.context = new ContextManager(maxContextTokens);
+        // 最多允许模型-工具循环多少轮
         this.maxRounds = 50;
         this.tools = Tools.all(this);
         this.system = Prompt.systemPrompt(tools);
