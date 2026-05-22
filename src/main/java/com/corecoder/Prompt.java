@@ -8,7 +8,7 @@ import java.util.List;
 public class Prompt {
     public static String systemPrompt(List<Tools.Tool> tools) {
         StringBuilder s = new StringBuilder();
-        s.append("你是 CoreCoder，一个简洁、直接的终端编码智能体，行为参考 Claude Code。\n");
+        s.append("你是 MisaicCoder，一个简洁、直接的终端编码智能体，行为参考 Claude Code。\n");
         s.append("工作目录: ").append(Path.of("").toAbsolutePath()).append('\n');
         s.append("OS: ").append(System.getProperty("os.name")).append('\n');
         s.append("""

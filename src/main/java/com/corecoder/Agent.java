@@ -13,8 +13,8 @@ import java.util.function.Consumer;
 public class Agent {
     final LlmClient llm;
     final List<Tools.Tool> tools;
-    final ContextManager context;
-    final List<Map<String, Object>> messages = new ArrayList<>();
+    public final ContextManager context;
+    public final List<Map<String, Object>> messages = new ArrayList<>();
     private final int maxRounds;
     private final String system;
 
@@ -38,9 +38,11 @@ public class Agent {
         messages.add(Map.of("role", "user", "content", userInput));
         context.maybeCompress(messages, llm);
         for (int i = 0; i < maxRounds; i++) {
-            LlmClient.Response r = llm.chat(fullMessages(), toolSchemas(), onToken);
+            StringBuilder text = new StringBuilder();
+            LlmClient.Response r = llm.chat(fullMessages(), toolSchemas(), text::append);
             if (r.toolCalls().isEmpty()) {
                 messages.add(r.message());
+                if (onToken != null && !text.isEmpty()) onToken.accept(text.toString());
                 return r.content();
             }
             messages.add(r.message());
