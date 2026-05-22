@@ -26,17 +26,17 @@ public final class ReadFileTool extends ToolBase {
         try {
             String file = str(args, "file_path", "");
             Path p = path(file);
-            if (!Files.exists(p)) return "Error: " + file + " not found";
-            if (!Files.isRegularFile(p)) return "Error: " + file + " is a directory, not a file";
+            if (!Files.exists(p)) return "错误: 未找到文件 " + file;
+            if (!Files.isRegularFile(p)) return "错误: " + file + " 是目录，不是文件";
             List<String> lines = Files.readString(p).isEmpty() ? List.of() : Files.readString(p).lines().toList();
             int start = Math.max(0, integer(args, "offset", 1) - 1);
             int limit = integer(args, "limit", 2000);
             StringBuilder out = new StringBuilder();
             for (int i = start; i < Math.min(lines.size(), start + limit); i++) out.append(i + 1).append('\t').append(lines.get(i)).append('\n');
-            if (lines.size() > start + limit) out.append("... (").append(lines.size()).append(" lines total, showing ").append(start + 1).append('-').append(Math.min(lines.size(), start + limit)).append(')');
-            return out.isEmpty() ? "(empty file)" : out.toString().stripTrailing();
+            if (lines.size() > start + limit) out.append("... (共 ").append(lines.size()).append(" 行，显示 ").append(start + 1).append('-').append(Math.min(lines.size(), start + limit)).append(')');
+            return out.isEmpty() ? "(空文件)" : out.toString().stripTrailing();
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "错误: " + e.getMessage();
         }
     }
 }

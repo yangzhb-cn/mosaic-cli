@@ -69,6 +69,26 @@ class LlmClientTest {
         assertEquals("a.txt", r.toolCalls().getFirst().arguments().get("file_path"));
     }
 
+    @Test
+    void preservesReasoningContentInAssistantMessage() throws Exception {
+        String body = """
+                data: {"choices":[{"delta":{"reasoning_content":"思考"}}]}
+
+                data: {"choices":[{"delta":{"content":"回答"}}]}
+
+                data: [DONE]
+
+                """;
+        String url = startServer(body);
+        LlmClient llm = new LlmClient("test-model", "key", url, 0, 4096);
+
+        LlmClient.Response r = llm.chat(List.of(Map.of("role", "user", "content", "hi")), null, null);
+
+        assertEquals("回答", r.content());
+        assertEquals("思考", r.reasoningContent());
+        assertEquals("思考", r.message().get("reasoning_content"));
+    }
+
     private String startServer(String response) throws IOException {
         server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/chat/completions", exchange -> {

@@ -30,17 +30,17 @@ public final class EditFileTool extends ToolBase {
             String newString = str(args, "new_string", "");
             int expected = integer(args, "expected_replacements", 1);
             Path p = path(file);
-            if (!Files.exists(p)) return "Error: " + file + " not found";
+            if (!Files.exists(p)) return "错误: 未找到文件 " + file;
             String old = Files.readString(p);
             int count = count(old, oldString);
-            if (count == 0) return "Error: old_string not found in " + file + ".\nFile starts with:\n" + old.substring(0, Math.min(500, old.length()));
-            if (count != expected) return "Error: expected " + expected + " replacements but found " + count;
+            if (count == 0) return "错误: old_string 未在 " + file + " 中找到。\n文件开头:\n" + old.substring(0, Math.min(500, old.length()));
+            if (count != expected) return "错误: 期望替换 " + expected + " 处，实际找到 " + count + " 处";
             String next = old.replace(oldString, newString);
             Files.writeString(p, next);
             Tools.markChanged(p);
-            return "Edited " + file + "\n" + diff(old, next, p.toString());
+            return "已编辑 " + file + "\n" + diff(old, next, p.toString());
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "错误: " + e.getMessage();
         }
     }
 
@@ -64,7 +64,7 @@ public final class EditFileTool extends ToolBase {
                 if (left != null) out.append('-').append(left).append('\n');
                 if (right != null) out.append('+').append(right).append('\n');
             }
-            if (out.length() > 3000) return out.substring(0, 2500) + "\n... (diff truncated)\n";
+            if (out.length() > 3000) return out.substring(0, 2500) + "\n... (diff 已截断)\n";
         }
         return out.toString().stripTrailing();
     }

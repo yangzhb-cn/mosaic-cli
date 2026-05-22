@@ -28,9 +28,9 @@ public final class WriteFileTool extends ToolBase {
             Files.writeString(p, content);
             Tools.markChanged(p);
             long lines = content.chars().filter(ch -> ch == '\n').count() + (content.isEmpty() || content.endsWith("\n") ? 0 : 1);
-            return "Wrote " + lines + " lines to " + file;
+            return "已写入 " + lines + " 行到 " + file;
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "错误: " + e.getMessage();
         }
     }
 }

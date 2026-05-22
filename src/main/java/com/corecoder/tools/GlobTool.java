@@ -13,12 +13,12 @@ public final class GlobTool extends ToolBase {
     public String name() { return "Glob"; }
 
     @Override
-    public String description() { return "按 glob 模式快速查找文件。"; }
+    public String description() { return "按文件匹配模式快速查找文件。"; }
 
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "pattern", prop("string", "glob 模式，例如 '**/*.py'"),
+                "pattern", prop("string", "文件匹配模式，例如 '**/*.py'"),
                 "path", prop("string", "搜索目录，默认当前工作目录")
         ), "pattern");
     }
@@ -28,7 +28,7 @@ public final class GlobTool extends ToolBase {
         try {
             String pattern = str(args, "pattern", "");
             Path base = path(str(args, "path", "."));
-            if (!Files.isDirectory(base)) return "Error: " + base + " is not a directory";
+            if (!Files.isDirectory(base)) return "错误: " + base + " 不是目录";
             PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
             List<Path> hits;
             try (var walk = Files.walk(base)) {
@@ -38,12 +38,12 @@ public final class GlobTool extends ToolBase {
                         .limit(101)
                         .toList();
             }
-            if (hits.isEmpty()) return "No files matched.";
+            if (hits.isEmpty()) return "没有匹配的文件。";
             String out = String.join("\n", hits.stream().limit(100).map(Path::toString).toList());
-            if (hits.size() > 100) out += "\n... (more than 100 matches, showing first 100)";
+            if (hits.size() > 100) out += "\n... (超过 100 个匹配，仅显示前 100 个)";
             return out;
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "错误: " + e.getMessage();
         }
     }
 

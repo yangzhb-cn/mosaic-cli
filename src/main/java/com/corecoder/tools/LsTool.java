@@ -16,7 +16,7 @@ public final class LsTool extends ToolBase {
     public Map<String, Object> parameters() {
         return params(Map.of(
                 "path", prop("string", "要列出的目录绝对路径"),
-                "ignore", arrayProp("要忽略的 glob 模式", prop("string", "忽略模式"))
+                "ignore", arrayProp("要忽略的文件匹配模式", prop("string", "忽略模式"))
         ), "path");
     }
 
@@ -24,10 +24,10 @@ public final class LsTool extends ToolBase {
     public String execute(Map<String, Object> args) {
         try {
             String raw = str(args, "path", "");
-            if (!Path.of(raw).isAbsolute()) return "Error: path 必须是绝对路径";
+            if (!Path.of(raw).isAbsolute()) return "错误: path 必须是绝对路径";
             Path dir = path(raw);
-            if (!dir.isAbsolute()) return "Error: path 必须是绝对路径";
-            if (!Files.isDirectory(dir)) return "Error: " + dir + " is not a directory";
+            if (!dir.isAbsolute()) return "错误: path 必须是绝对路径";
+            if (!Files.isDirectory(dir)) return "错误: " + dir + " 不是目录";
             List<String> ignore = list(args.get("ignore"));
             try (var stream = Files.list(dir)) {
                 List<String> entries = stream
@@ -35,10 +35,10 @@ public final class LsTool extends ToolBase {
                         .sorted()
                         .map(p -> p.getFileName() + (Files.isDirectory(p) ? "/" : ""))
                         .toList();
-                return entries.isEmpty() ? "(empty directory)" : String.join("\n", entries);
+                return entries.isEmpty() ? "(空目录)" : String.join("\n", entries);
             }
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "错误: " + e.getMessage();
         }
     }
 

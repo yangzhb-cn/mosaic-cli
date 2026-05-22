@@ -7,7 +7,7 @@ public final class TodoReadTool extends ToolBase {
     public String name() { return "TodoRead"; }
 
     @Override
-    public String description() { return "读取当前会话的 Todo 列表。"; }
+    public String description() { return "读取当前会话的待办列表。"; }
 
     @Override
     public Map<String, Object> parameters() {

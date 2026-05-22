@@ -4,13 +4,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 public class Config {
-    public String model = "gpt-4o";
+    public static final String MODEL = "deepseek-v4-flash";
+
+    public String model = MODEL;
     public String apiKey = "";
-    public String baseUrl;
+    public String baseUrl = "https://api.deepseek.com/v1";
     public int maxTokens = 4096;
     public double temperature = 0.0;
     public int maxContextTokens = 128000;
@@ -22,29 +23,17 @@ public class Config {
     static Config from(Map<String, String> env, Path cwd) {
         Map<String, String> file = loadDotenv(cwd);
         Config c = new Config();
-        c.model = val(env, file, "CORECODER_MODEL", "gpt-4o");
-        c.apiKey = first(env, file, List.of("CORECODER_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY"), "");
-        c.baseUrl = first(env, file, List.of("OPENAI_BASE_URL", "CORECODER_BASE_URL"), null);
-        c.maxTokens = Integer.parseInt(val(env, file, "CORECODER_MAX_TOKENS", "4096"));
-        c.temperature = Double.parseDouble(val(env, file, "CORECODER_TEMPERATURE", "0"));
-        c.maxContextTokens = Integer.parseInt(val(env, file, "CORECODER_MAX_CONTEXT", "128000"));
+        c.apiKey = value(env, file, "DEEPSEEK_API_KEY", "");
+        c.baseUrl = value(env, file, "DEEPSEEK_BASE_URL", c.baseUrl);
         return c;
     }
 
-    private static String first(Map<String, String> env, Map<String, String> file, List<String> keys, String def) {
-        for (String k : keys) {
-            String v = env.get(k);
-            if (v != null && !v.isBlank()) return v;
-        }
-        for (String k : keys) {
-            String v = file.get(k);
-            if (v != null && !v.isBlank()) return v;
-        }
+    private static String value(Map<String, String> env, Map<String, String> file, String key, String def) {
+        String v = env.get(key);
+        if (v != null && !v.isBlank()) return v;
+        v = file.get(key);
+        if (v != null && !v.isBlank()) return v;
         return def;
-    }
-
-    private static String val(Map<String, String> env, Map<String, String> file, String key, String def) {
-        return first(env, file, List.of(key), def);
     }
 
     private static Map<String, String> loadDotenv(Path cwd) {

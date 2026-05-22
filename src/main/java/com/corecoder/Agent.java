@@ -54,7 +54,7 @@ public class Agent {
             }
             context.maybeCompress(messages, llm);
         }
-        return "(reached maximum tool-call rounds)";
+        return "(已达到最大工具调用轮数)";
     }
 
     public void reset() {
@@ -83,11 +83,11 @@ public class Agent {
     private String exec(LlmClient.ToolCall tc, BiConsumer<String, Map<String, Object>> onTool) {
         if (onTool != null) onTool.accept(tc.name(), tc.arguments());
         Tools.Tool tool = Tools.get(tools, tc.name());
-        if (tool == null) return "Error: unknown tool '" + tc.name() + "'";
+        if (tool == null) return "错误: 未知工具 '" + tc.name() + "'";
         try {
             return tool.execute(tc.arguments());
         } catch (Exception e) {
-            return "Error executing " + tc.name() + ": " + e.getMessage();
+            return "错误: 执行工具 " + tc.name() + " 失败: " + e.getMessage();
         }
     }
 

@@ -8,7 +8,7 @@ import java.util.List;
 public class Prompt {
     public static String systemPrompt(List<Tools.Tool> tools) {
         StringBuilder s = new StringBuilder();
-        s.append("你是 CoreCoder，一个简洁、直接的终端编码 agent，行为参考 Claude Code。\n");
+        s.append("你是 CoreCoder，一个简洁、直接的终端编码智能体，行为参考 Claude Code。\n");
         s.append("工作目录: ").append(Path.of("").toAbsolutePath()).append('\n');
         s.append("OS: ").append(System.getProperty("os.name")).append('\n');
         s.append("""
@@ -21,7 +21,7 @@ public class Prompt {
 
                 语气和风格:
                 - 简洁、直接、切中要点。除非用户要求详细说明，否则保持短回答。
-                - 运行非平凡 shell 命令前，说明它做什么以及为什么运行；会修改文件的命令尤其如此。
+                - 运行非平凡命令行命令前，说明它做什么以及为什么运行；会修改文件的命令尤其如此。
                 - 除非用户要求，或代码本身难以理解，否则不要添加代码注释。
                 - 遵循现有代码风格、依赖和约定。保持改动小而精准。
 

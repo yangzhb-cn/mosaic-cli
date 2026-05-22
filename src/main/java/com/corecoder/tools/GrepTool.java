@@ -25,7 +25,7 @@ public final class GrepTool extends ToolBase {
         return params(Map.of(
                 "pattern", prop("string", "要搜索的正则表达式"),
                 "path", prop("string", "要搜索的文件或目录，默认当前工作目录"),
-                "include", prop("string", "只搜索匹配该 glob 的文件")
+                "include", prop("string", "只搜索匹配该文件模式的文件")
         ), "pattern");
     }
 
@@ -35,11 +35,11 @@ public final class GrepTool extends ToolBase {
         try {
             regex = Pattern.compile(str(args, "pattern", ""));
         } catch (PatternSyntaxException e) {
-            return "Invalid regex: " + e.getMessage();
+            return "正则表达式无效: " + e.getMessage();
         }
         try {
             Path base = path(str(args, "path", "."));
-            if (!Files.exists(base)) return "Error: " + base + " not found";
+            if (!Files.exists(base)) return "错误: 未找到 " + base;
             List<Path> files = Files.isRegularFile(base) ? List.of(base) : walk(base, str(args, "include", null));
             List<String> matches = new ArrayList<>();
             for (Path fp : files) {
@@ -49,15 +49,15 @@ public final class GrepTool extends ToolBase {
                     if (regex.matcher(lines.get(i)).find()) {
                         matches.add(fp + ":" + (i + 1) + ": " + lines.get(i).stripTrailing());
                         if (matches.size() >= 200) {
-                            matches.add("... (200 match limit reached)");
+                            matches.add("... (已达到 200 条匹配上限)");
                             return String.join("\n", matches);
                         }
                     }
                 }
             }
-            return matches.isEmpty() ? "No matches found." : String.join("\n", matches);
+            return matches.isEmpty() ? "未找到匹配。" : String.join("\n", matches);
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "错误: " + e.getMessage();
         }
     }
 

@@ -58,7 +58,7 @@ public class ContextManager {
             if (lines.length <= 6) continue;
             StringBuilder s = new StringBuilder();
             for (int i = 0; i < 3; i++) s.append(lines[i]).append('\n');
-            s.append("... (").append(lines.length).append(" lines, snipped to save context) ...\n");
+            s.append("... (").append(lines.length).append(" 行，为节省上下文已截断) ...\n");
             for (int i = Math.max(3, lines.length - 3); i < lines.length; i++) s.append(lines[i]).append('\n');
             m.put("content", s.toString().stripTrailing());
             changed = true;
@@ -71,8 +71,8 @@ public class ContextManager {
         List<Map<String, Object>> old = new ArrayList<>(messages.subList(0, messages.size() - keepRecent));
         List<Map<String, Object>> tail = new ArrayList<>(messages.subList(messages.size() - keepRecent, messages.size()));
         messages.clear();
-        messages.add(Map.of("role", "user", "content", "[Context compressed - conversation summary]\n" + summary(old, llm)));
-        messages.add(Map.of("role", "assistant", "content", "Got it, I have the context from our earlier conversation."));
+        messages.add(Map.of("role", "user", "content", "[上下文已压缩 - 对话摘要]\n" + summary(old, llm)));
+        messages.add(Map.of("role", "assistant", "content", "收到，我已保留前面对话的上下文。"));
         messages.addAll(tail);
         return true;
     }
@@ -82,8 +82,8 @@ public class ContextManager {
         List<Map<String, Object>> old = new ArrayList<>(messages.subList(0, messages.size() - keep));
         List<Map<String, Object>> tail = new ArrayList<>(messages.subList(messages.size() - keep, messages.size()));
         messages.clear();
-        messages.add(Map.of("role", "user", "content", "[Hard context reset]\n" + summary(old, llm)));
-        messages.add(Map.of("role", "assistant", "content", "Context restored. Continuing from where we left off."));
+        messages.add(Map.of("role", "user", "content", "[上下文强制重置]\n" + summary(old, llm)));
+        messages.add(Map.of("role", "assistant", "content", "上下文已恢复，继续之前的任务。"));
         messages.addAll(tail);
     }
 
@@ -91,7 +91,7 @@ public class ContextManager {
         if (llm != null) {
             try {
                 LlmClient.Response r = llm.chat(List.of(
-                        Map.of("role", "system", "content", "Compress this conversation into a brief summary. Preserve file paths, decisions, errors, and current task state."),
+                        Map.of("role", "system", "content", "把这段对话压缩成简短摘要。保留文件路径、决策、错误和当前任务状态。"),
                         Map.of("role", "user", "content", flatten(messages, 15000))
                 ), null, null);
                 if (!r.content().isBlank()) return r.content();
@@ -125,8 +125,8 @@ public class ContextManager {
             }
         }
         List<String> parts = new ArrayList<>();
-        if (!files.isEmpty()) parts.add("Files touched: " + String.join(", ", files));
-        if (!errors.isEmpty()) parts.add("Errors seen: " + String.join("; ", errors));
-        return parts.isEmpty() ? "(no extractable context)" : String.join("\n", parts);
+        if (!files.isEmpty()) parts.add("涉及文件: " + String.join(", ", files));
+        if (!errors.isEmpty()) parts.add("发现错误: " + String.join("; ", errors));
+        return parts.isEmpty() ? "(没有可提取的上下文)" : String.join("\n", parts);
     }
 }

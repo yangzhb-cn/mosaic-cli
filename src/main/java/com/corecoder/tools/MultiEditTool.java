@@ -34,23 +34,23 @@ public final class MultiEditTool extends ToolBase {
     public String execute(Map<String, Object> args) {
         try {
             Path p = path(str(args, "file_path", ""));
-            if (!Files.exists(p)) return "Error: " + p + " not found";
+            if (!Files.exists(p)) return "错误: 未找到文件 " + p;
             String original = Files.readString(p);
             String next = original;
             for (Map<String, Object> edit : mapList(args.get("edits"))) {
                 String oldString = str(edit, "old_string", "");
                 String newString = str(edit, "new_string", "");
                 int expected = integer(edit, "expected_replacements", 1);
-                if (oldString.equals(newString)) return "Error: old_string and new_string must differ";
+                if (oldString.equals(newString)) return "错误: old_string 和 new_string 不能相同";
                 int count = count(next, oldString);
-                if (count != expected) return "Error: expected " + expected + " replacements but found " + count;
+                if (count != expected) return "错误: 期望替换 " + expected + " 处，实际找到 " + count + " 处";
                 next = next.replace(oldString, newString);
             }
             Files.writeString(p, next);
             Tools.markChanged(p);
-            return "Applied " + mapList(args.get("edits")).size() + " edits to " + p;
+            return "已对 " + p + " 应用 " + mapList(args.get("edits")).size() + " 处编辑";
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "错误: " + e.getMessage();
         }
     }
 

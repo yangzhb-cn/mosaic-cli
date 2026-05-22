@@ -21,7 +21,7 @@ public class LlmClient {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final MediaType JSON_TYPE = MediaType.parse("application/json");
     private final OkHttpClient http = new OkHttpClient();
-    public String model;
+    public final String model;
     public final String apiKey;
     public final String baseUrl;
     public final double temperature;
@@ -30,11 +30,14 @@ public class LlmClient {
     public int totalCompletionTokens;
 
     public record ToolCall(String id, String name, Map<String, Object> arguments) {}
-    public record Response(String content, List<ToolCall> toolCalls, int promptTokens, int completionTokens) {
+    public record Response(String content, String reasoningContent, List<ToolCall> toolCalls, int promptTokens, int completionTokens) {
         Map<String, Object> message() {
             Map<String, Object> msg = new LinkedHashMap<>();
             msg.put("role", "assistant");
             msg.put("content", content == null || content.isEmpty() ? null : content);
+            if (reasoningContent != null && !reasoningContent.isEmpty()) {
+                msg.put("reasoning_content", reasoningContent);
+            }
             if (!toolCalls.isEmpty()) {
                 msg.put("tool_calls", toolCalls.stream().map(tc -> Map.of(
                         "id", tc.id(),
@@ -81,8 +84,9 @@ public class LlmClient {
 
         try (okhttp3.Response res = http.newCall(req).execute()) {
             if (!res.isSuccessful()) throw new IOException("LLM HTTP " + res.code() + ": " + (res.body() == null ? "" : res.body().string()));
-            if (res.body() == null) throw new IOException("empty LLM response");
+            if (res.body() == null) throw new IOException("LLM 响应为空");
             StringBuilder content = new StringBuilder();
+            StringBuilder reasoning = new StringBuilder();
             Map<Integer, PartialToolCall> toolMap = new TreeMap<>();
             int prompt = 0;
             int completion = 0;
@@ -107,6 +111,8 @@ public class LlmClient {
                     content.append(token);
                     if (onToken != null) onToken.accept(token);
                 }
+                String reasoningToken = delta.path("reasoning_content").asText(null);
+                if (reasoningToken != null) reasoning.append(reasoningToken);
                 JsonNode calls = delta.get("tool_calls");
                 if (calls != null && calls.isArray()) {
                     for (JsonNode c : calls) {
@@ -128,27 +134,12 @@ public class LlmClient {
                     .toList();
             totalPromptTokens += prompt;
             totalCompletionTokens += completion;
-            return new Response(content.toString(), calls, prompt, completion);
+            return new Response(content.toString(), reasoning.toString(), calls, prompt, completion);
         }
     }
 
-    public Double estimatedCost() {
-        Map<String, double[]> rates = Map.of(
-                "gpt-4o", new double[]{2.5, 10},
-                "gpt-4o-mini", new double[]{0.15, 0.6},
-                "gpt-4.1", new double[]{2, 8},
-                "gpt-5.4", new double[]{2.5, 15},
-                "deepseek-chat", new double[]{0.27, 1.10},
-                "kimi-k2.5", new double[]{0.6, 3},
-                "qwen-max", new double[]{0.78, 3.9}
-        );
-        double[] r = rates.get(model);
-        if (r == null) return null;
-        return totalPromptTokens * r[0] / 1_000_000 + totalCompletionTokens * r[1] / 1_000_000;
-    }
-
     private String endpoint() {
-        String root = baseUrl == null || baseUrl.isBlank() ? "https://api.openai.com/v1" : baseUrl;
+        String root = baseUrl == null || baseUrl.isBlank() ? "https://api.deepseek.com/v1" : baseUrl;
         while (root.endsWith("/")) root = root.substring(0, root.length() - 1);
         return root + "/chat/completions";
     }

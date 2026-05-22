@@ -33,7 +33,7 @@ class ToolsTest {
         Tools.Tool bash = Tools.get(Tools.all(null), "Bash");
         assertNotNull(bash);
         assertTrue(bash.execute(Map.of("command", "echo hello")).contains("hello"));
-        assertTrue(bash.execute(Map.of("command", "rm -rf /")).contains("Blocked"));
+        assertTrue(bash.execute(Map.of("command", "rm -rf /")).contains("已阻止"));
     }
 
     @Test
@@ -44,7 +44,7 @@ class ToolsTest {
         assertTrue(Tools.get(tools, "Write").execute(Map.of(
                 "file_path", file.toString(),
                 "content", "alpha\nbeta\n"
-        )).contains("Wrote"));
+        )).contains("已写入"));
 
         assertTrue(Tools.get(tools, "Read").execute(Map.of("file_path", file.toString())).contains("1\talpha"));
 
@@ -53,7 +53,7 @@ class ToolsTest {
                 "old_string", "beta",
                 "new_string", "gamma"
         ));
-        assertTrue(edited.contains("Edited"));
+        assertTrue(edited.contains("已编辑"));
         assertTrue(edited.contains("---"));
         assertEquals("alpha\ngamma\n", Files.readString(file));
         assertTrue(Tools.changedFiles().contains(file.toAbsolutePath().normalize().toString()));
@@ -68,7 +68,7 @@ class ToolsTest {
                 "old_string", "x",
                 "new_string", "y"
         ));
-        assertTrue(out.contains("expected 1 replacements but found 2"));
+        assertTrue(out.contains("期望替换 1 处，实际找到 2 处"));
     }
 
     @Test
@@ -104,7 +104,7 @@ class ToolsTest {
                         "expected_replacements", 1
                 ))
         ));
-        assertTrue(failed.contains("expected 1 replacements but found 2"));
+        assertTrue(failed.contains("期望替换 1 处，实际找到 2 处"));
         assertEquals("alpha\nbeta\nbeta\n", Files.readString(file));
 
         String edited = Tools.get(Tools.all(null), "MultiEdit").execute(Map.of(
@@ -114,7 +114,7 @@ class ToolsTest {
                         Map.of("old_string", "beta", "new_string", "two", "expected_replacements", 2)
                 )
         ));
-        assertTrue(edited.contains("Applied 2 edits"));
+        assertTrue(edited.contains("应用 2 处编辑"));
         assertEquals("one\ntwo\ntwo\n", Files.readString(file));
     }
 
@@ -132,6 +132,6 @@ class ToolsTest {
 
     @Test
     void agentToolNeedsParentAgent() {
-        assertTrue(Tools.get(Tools.all(null), "Task").execute(Map.of("task", "x")).contains("not initialized"));
+        assertTrue(Tools.get(Tools.all(null), "Task").execute(Map.of("task", "x")).contains("未初始化"));
     }
 }

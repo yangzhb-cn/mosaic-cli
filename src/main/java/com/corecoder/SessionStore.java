@@ -93,7 +93,7 @@ public class SessionStore {
     private Path path(String id) {
         Path p = dir.resolve(normalize(id) + ".json").toAbsolutePath().normalize();
         Path root = dir.toAbsolutePath().normalize();
-        if (!p.getParent().equals(root)) throw new IllegalArgumentException("Invalid session id");
+        if (!p.getParent().equals(root)) throw new IllegalArgumentException("会话 ID 无效");
         return p;
     }
 

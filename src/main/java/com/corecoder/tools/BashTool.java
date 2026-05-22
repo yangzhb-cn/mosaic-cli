@@ -12,15 +12,15 @@ import java.util.regex.Pattern;
 
 public final class BashTool extends ToolBase {
     private static final String[][] DANGEROUS = {
-            {"\\brm\\s+(-\\w*)?-r\\w*\\s+(/|~|\\$HOME)", "recursive delete on home/root"},
-            {"\\brm\\s+(-\\w*)?-rf\\s", "force recursive delete"},
-            {"\\bmkfs\\b", "format filesystem"},
-            {"\\bdd\\s+.*of=/dev/", "raw disk write"},
-            {">\\s*/dev/sd[a-z]", "overwrite block device"},
-            {"\\bchmod\\s+(-R\\s+)?777\\s+/", "chmod 777 on root"},
+            {"\\brm\\s+(-\\w*)?-r\\w*\\s+(/|~|\\$HOME)", "递归删除根目录或用户目录"},
+            {"\\brm\\s+(-\\w*)?-rf\\s", "强制递归删除"},
+            {"\\bmkfs\\b", "格式化文件系统"},
+            {"\\bdd\\s+.*of=/dev/", "直接写入原始磁盘"},
+            {">\\s*/dev/sd[a-z]", "覆盖块设备"},
+            {"\\bchmod\\s+(-R\\s+)?777\\s+/", "对根目录执行 chmod 777"},
             {":\\(\\)\\s*\\{.*:\\|:.*\\}", "fork bomb"},
-            {"\\bcurl\\b.*\\|\\s*(sudo\\s+)?bash", "pipe curl to bash"},
-            {"\\bwget\\b.*\\|\\s*(sudo\\s+)?bash", "pipe wget to bash"}
+            {"\\bcurl\\b.*\\|\\s*(sudo\\s+)?bash", "把 curl 输出直接交给 bash"},
+            {"\\bwget\\b.*\\|\\s*(sudo\\s+)?bash", "把 wget 输出直接交给 bash"}
     };
     private static Path cwd;
 
@@ -28,12 +28,12 @@ public final class BashTool extends ToolBase {
     public String name() { return "Bash"; }
 
     @Override
-    public String description() { return "执行 shell 命令，返回 stdout、stderr 和退出码。"; }
+    public String description() { return "执行命令行命令，返回标准输出、标准错误和退出码。"; }
 
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "command", prop("string", "要运行的 shell 命令"),
+                "command", prop("string", "要运行的命令行命令"),
                 "timeout", prop("integer", "超时时间，单位秒，默认 120")
         ), "command");
     }
@@ -42,7 +42,7 @@ public final class BashTool extends ToolBase {
     public String execute(Map<String, Object> args) {
         String command = str(args, "command", "");
         String blocked = dangerous(command);
-        if (blocked != null) return "Blocked: " + blocked + "\nCommand: " + command;
+        if (blocked != null) return "已阻止: " + blocked + "\n命令: " + command;
         int timeout = integer(args, "timeout", 120);
         Path runDir = cwd == null ? Path.of("").toAbsolutePath() : cwd;
         List<String> shell = System.getProperty("os.name").toLowerCase().contains("win") ? List.of("cmd", "/c", command) : List.of("/bin/sh", "-c", command);
@@ -52,17 +52,17 @@ public final class BashTool extends ToolBase {
             CompletableFuture<String> err = readAsync(p.getErrorStream());
             if (!p.waitFor(timeout, TimeUnit.SECONDS)) {
                 p.destroyForcibly();
-                return "Error: timed out after " + timeout + "s";
+                return "错误: " + timeout + " 秒后超时";
             }
             String text = out.get(1, TimeUnit.SECONDS);
             String stderr = err.get(1, TimeUnit.SECONDS);
-            if (!stderr.isBlank()) text += "\n[stderr]\n" + stderr;
-            if (p.exitValue() != 0) text += "\n[exit code: " + p.exitValue() + "]";
+            if (!stderr.isBlank()) text += "\n[标准错误]\n" + stderr;
+            if (p.exitValue() != 0) text += "\n[退出码: " + p.exitValue() + "]";
             if (p.exitValue() == 0) updateCwd(command, runDir);
-            if (text.length() > 15000) text = text.substring(0, 6000) + "\n\n... truncated (" + text.length() + " chars total) ...\n\n" + text.substring(text.length() - 3000);
-            return text.strip().isEmpty() ? "(no output)" : text.strip();
+            if (text.length() > 15000) text = text.substring(0, 6000) + "\n\n... 已截断 (共 " + text.length() + " 个字符) ...\n\n" + text.substring(text.length() - 3000);
+            return text.strip().isEmpty() ? "(无输出)" : text.strip();
         } catch (Exception e) {
-            return "Error running command: " + e.getMessage();
+            return "错误: 命令执行失败: " + e.getMessage();
         }
     }
 

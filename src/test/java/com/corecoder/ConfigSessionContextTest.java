@@ -19,9 +19,9 @@ class ConfigSessionContextTest {
     @Test
     void configUsesDefaultsWithoutEnvOrDotenv() {
         Config c = Config.from(Map.of(), temp);
-        assertEquals("gpt-4o", c.model);
+        assertEquals("deepseek-v4-flash", c.model);
         assertEquals("", c.apiKey);
-        assertNull(c.baseUrl);
+        assertEquals("https://api.deepseek.com/v1", c.baseUrl);
         assertEquals(4096, c.maxTokens);
         assertEquals(0.0, c.temperature);
         assertEquals(128000, c.maxContextTokens);
@@ -30,15 +30,15 @@ class ConfigSessionContextTest {
     @Test
     void configLoadsDotenvAndEnvWins() throws Exception {
         Files.writeString(temp.resolve(".env"), """
-                CORECODER_MODEL=file-model
-                OPENAI_API_KEY=file-key
-                CORECODER_MAX_TOKENS=1000
+                DEEPSEEK_API_KEY=file-key
+                DEEPSEEK_BASE_URL=https://file.example/v1
                 """);
 
-        Config c = Config.from(Map.of("CORECODER_MODEL", "env-model"), temp);
-        assertEquals("env-model", c.model);
-        assertEquals("file-key", c.apiKey);
-        assertEquals(1000, c.maxTokens);
+        Config c = Config.from(Map.of("DEEPSEEK_API_KEY", "env-key"), temp);
+        assertEquals("deepseek-v4-flash", c.model);
+        assertEquals("env-key", c.apiKey);
+        assertEquals("https://file.example/v1", c.baseUrl);
+        assertEquals(4096, c.maxTokens);
     }
 
     @Test
