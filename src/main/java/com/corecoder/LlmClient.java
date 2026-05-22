@@ -25,7 +25,6 @@ public class LlmClient {
     public final String apiKey;
     public final String baseUrl;
     public final double temperature;
-    public final int maxTokens;
     public int totalPromptTokens;
     public int totalCompletionTokens;
 
@@ -49,12 +48,11 @@ public class LlmClient {
         }
     }
 
-    public LlmClient(String model, String apiKey, String baseUrl, double temperature, int maxTokens) {
+    public LlmClient(String model, String apiKey, String baseUrl, double temperature) {
         this.model = model;
         this.apiKey = apiKey;
         this.baseUrl = baseUrl;
         this.temperature = temperature;
-        this.maxTokens = maxTokens;
     }
 
     public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken) throws IOException {
@@ -71,7 +69,6 @@ public class LlmClient {
         body.put("messages", messages);
         body.put("stream", true);
         body.put("temperature", temperature);
-        body.put("max_tokens", maxTokens);
         if (tools != null && !tools.isEmpty()) body.put("tools", tools);
         if (includeUsage) body.put("stream_options", Map.of("include_usage", true));
 

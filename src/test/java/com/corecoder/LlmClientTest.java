@@ -35,7 +35,7 @@ class LlmClientTest {
 
                 """;
         String url = startServer(body);
-        LlmClient llm = new LlmClient("test-model", "key", url, 0, 4096);
+        LlmClient llm = new LlmClient("test-model", "key", url, 0);
         List<String> tokens = new ArrayList<>();
 
         LlmClient.Response r = llm.chat(List.of(Map.of("role", "user", "content", "hi")), null, tokens::add);
@@ -59,7 +59,7 @@ class LlmClientTest {
 
                 """;
         String url = startServer(body);
-        LlmClient llm = new LlmClient("test-model", "key", url, 0, 4096);
+        LlmClient llm = new LlmClient("test-model", "key", url, 0);
 
         LlmClient.Response r = llm.chat(List.of(Map.of("role", "user", "content", "hi")), List.of(), null);
 
@@ -80,7 +80,7 @@ class LlmClientTest {
 
                 """;
         String url = startServer(body);
-        LlmClient llm = new LlmClient("test-model", "key", url, 0, 4096);
+        LlmClient llm = new LlmClient("test-model", "key", url, 0);
 
         LlmClient.Response r = llm.chat(List.of(Map.of("role", "user", "content", "hi")), null, null);
 

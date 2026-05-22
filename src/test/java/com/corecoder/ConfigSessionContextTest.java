@@ -22,7 +22,6 @@ class ConfigSessionContextTest {
         assertEquals("deepseek-v4-flash", c.model);
         assertEquals("", c.apiKey);
         assertEquals("https://api.deepseek.com/v1", c.baseUrl);
-        assertEquals(4096, c.maxTokens);
         assertEquals(0.0, c.temperature);
         assertEquals(128000, c.maxContextTokens);
     }
@@ -38,7 +37,6 @@ class ConfigSessionContextTest {
         assertEquals("deepseek-v4-flash", c.model);
         assertEquals("env-key", c.apiKey);
         assertEquals("https://file.example/v1", c.baseUrl);
-        assertEquals(4096, c.maxTokens);
     }
 
     @Test

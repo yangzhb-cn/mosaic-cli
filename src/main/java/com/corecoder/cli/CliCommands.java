@@ -18,7 +18,9 @@ import org.jline.terminal.TerminalBuilder;
 import java.util.List;
 import java.util.Map;
 
-// 斜杠命令
+/* 
+ * 斜杠命令
+ */
 public final class CliCommands {
     private static final List<String> COMMANDS = List.of(
             "/reset",

@@ -6,28 +6,35 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/*  提供默认配置
+* 从环境变量和 .env 文件加载运行参数
+* 统一输出一个 Config 对象给程序其他部分使用
+*/
 public class Config {
     public static final String MODEL = "deepseek-v4-flash";
 
     public String model = MODEL;
     public String apiKey = "";
     public String baseUrl = "https://api.deepseek.com/v1";
-    public int maxTokens = 4096;
     public double temperature = 0.0;
     public int maxContextTokens = 128000;
 
     public static Config fromEnv() {
+        // 读取系统环境变量 System.getenv()
+        // 以当前工作目录作为起点去找 .env 文件
         return from(System.getenv(), Path.of("").toAbsolutePath());
     }
 
+    // 环境变量 > .env 文件 > 默认值
     static Config from(Map<String, String> env, Path cwd) {
         Map<String, String> file = loadDotenv(cwd);
         Config c = new Config();
-        c.apiKey = value(env, file, "DEEPSEEK_API_KEY", "");
+        c.apiKey = value(env, file, "DEEPSEEK_API_KEY", c.apiKey);
         c.baseUrl = value(env, file, "DEEPSEEK_BASE_URL", c.baseUrl);
         return c;
     }
 
+    // 取值优先级
     private static String value(Map<String, String> env, Map<String, String> file, String key, String def) {
         String v = env.get(key);
         if (v != null && !v.isBlank()) return v;
@@ -36,6 +43,7 @@ public class Config {
         return def;
     }
 
+    // 从当前目录开始向上查找 .env 文件: 可以把 .env 放在项目根目录，程序从子目录启动时也能找到
     private static Map<String, String> loadDotenv(Path cwd) {
         Path cur = cwd.toAbsolutePath().normalize();
         Path home = Path.of(System.getProperty("user.home")).toAbsolutePath().normalize();
@@ -48,6 +56,7 @@ public class Config {
         return Map.of();
     }
 
+    // 简化版的 .env 解析器
     private static Map<String, String> parseDotenv(Path p) {
         Map<String, String> out = new LinkedHashMap<>();
         try {
