@@ -1,5 +1,7 @@
 package com.corecoder;
 
+import com.corecoder.tools.Tools;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -57,6 +59,14 @@ public class Agent {
 
     public void reset() {
         messages.clear();
+    }
+
+    public String runSubAgent(String task, int maxRounds) throws Exception {
+        List<Tools.Tool> subTools = tools.stream()
+                .filter(t -> !"agent".equals(t.name()))
+                .toList();
+        Agent sub = new Agent(llm, subTools, context.maxTokens, maxRounds);
+        return sub.chat(task, null, null);
     }
 
     private List<Map<String, Object>> fullMessages() {

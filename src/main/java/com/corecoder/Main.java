@@ -54,11 +54,19 @@ public class Main {
         Scanner in = new Scanner(System.in);
         while (true) {
             System.out.print("You > ");
-            if (!in.hasNextLine()) break;
+            if (!in.hasNextLine()) {
+                break;
+            }
             String line = in.nextLine().strip();
-            if (line.isEmpty()) continue;
-            if (line.equals("quit") || line.equals("exit") || line.equals("/quit") || line.equals("/exit")) break;
-            if (CliCommands.handle(line, agent, llm, sessions)) continue;
+            if (line.isEmpty()) {
+                continue;
+            }
+            if (line.equals("quit") || line.equals("exit") || line.equals("/quit") || line.equals("/exit")) {
+                break;
+            }
+            if (CliCommands.handle(line, agent, llm, sessions)) {
+                continue;
+            }
             StringBuilder streamed = new StringBuilder();
             String response = agent.chat(line, tok -> {
                 streamed.append(tok);
@@ -85,13 +93,18 @@ public class Main {
             Args out = new Args();
             for (int i = 0; i < args.length; i++) {
                 String a = args[i];
-                if (a.equals("-v") || a.equals("--version")) out.version = true;
-                else if ((a.equals("-m") || a.equals("--model")) && i + 1 < args.length) out.model = args[++i];
-                else if (a.equals("--base-url") && i + 1 < args.length) out.baseUrl = args[++i];
-                else if (a.equals("--api-key") && i + 1 < args.length) out.apiKey = args[++i];
-                else if ((a.equals("-p") || a.equals("--prompt")) && i + 1 < args.length) out.prompt = args[++i];
-                else if ((a.equals("-r") || a.equals("--resume")) && i + 1 < args.length) out.resume = args[++i];
-                else if (a.equals("--help") || a.equals("-h")) {
+                if (a.equals("-v") || a.equals("--version")) {
+                    out.version = true;
+                } else if ((a.equals("-m") || a.equals("--model")) && i + 1 < args.length) {
+                    out.model = args[++i];
+                } else if (a.equals("--base-url") && i + 1 < args.length) {
+                    out.baseUrl = args[++i];
+                } else if (a.equals("--api-key") && i + 1 < args.length) out.apiKey = args[++i];
+                else if ((a.equals("-p") || a.equals("--prompt")) && i + 1 < args.length) {
+                    out.prompt = args[++i];
+                } else if ((a.equals("-r") || a.equals("--resume")) && i + 1 < args.length) {
+                    out.resume = args[++i];
+                } else if (a.equals("--help") || a.equals("-h")) {
                     System.out.println("Usage: core-cli [-m model] [--base-url url] [--api-key key] [-p prompt] [-r id] [-v]");
                     System.exit(0);
                 } else {
