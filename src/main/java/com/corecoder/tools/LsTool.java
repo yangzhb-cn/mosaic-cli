@@ -10,13 +10,15 @@ public final class LsTool extends ToolBase {
     public String name() { return "LS"; }
 
     @Override
-    public String description() { return "列出绝对路径下的文件和目录。"; }
+    public String description() {
+        return "列出给定路径中的文件和目录。path 参数必须是绝对路径，不能是相对路径。可以选择提供 ignore 参数，传入要忽略的 glob patterns 数组。如果你知道要搜索哪些目录，通常应优先使用 Glob 和 Grep。";
+    }
 
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "path", prop("string", "要列出的目录绝对路径"),
-                "ignore", arrayProp("要忽略的文件匹配模式", prop("string", "忽略模式"))
+                "path", prop("string", "要列出的目录绝对路径（必须是绝对路径，不能是相对路径）"),
+                "ignore", arrayProp("要忽略的 glob patterns 列表", prop("string", "忽略模式"))
         ), "path");
     }
 

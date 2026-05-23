@@ -11,7 +11,7 @@ import java.util.Map;
 * 统一输出一个 Config 对象给程序其他部分使用
 */
 public class Config {
-    public static final String MODEL = "deepseek-v4-flash";
+    public static final String MODEL = "deepseek-v4-pro";
 
     public String model = MODEL;
     public String apiKey = "";

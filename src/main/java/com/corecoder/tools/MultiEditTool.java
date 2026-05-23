@@ -10,7 +10,46 @@ public final class MultiEditTool extends ToolBase {
     public String name() { return "MultiEdit"; }
 
     @Override
-    public String description() { return "对单个文件按顺序执行多个精确字符串替换，全部成功才写入。"; }
+    public String description() {
+        return """
+                这是一个用于在一次操作中对单个文件执行多个编辑的工具。它构建在 Edit 工具之上，可高效执行多个查找替换操作。当你需要对同一文件做多处编辑时，优先使用此工具而不是 Edit 工具。
+
+                使用此工具前：
+
+                1. 使用 Read 工具理解文件内容和上下文
+                2. 验证目录路径正确
+
+                要进行多个文件编辑，提供以下内容：
+                1. file_path：要修改文件的绝对路径（必须是绝对路径）
+                2. edits：要执行的编辑操作数组，每个 edit 包含：
+                   - old_string：要替换的文本（必须与文件内容完全匹配，包括所有空白和缩进）
+                   - new_string：替换 old_string 的编辑后文本
+                   - expected_replacements：你期望执行的替换次数。如果未指定，默认为 1。
+
+                重要：
+                - 所有编辑会按提供顺序应用
+                - 每个编辑都基于上一个编辑的结果执行
+                - 所有编辑都必须有效，操作才会成功；如果任何编辑失败，则不会应用任何编辑
+                - 当需要修改同一文件的多个位置时，此工具很理想
+
+                关键要求：
+                1. 所有编辑都遵循单个 Edit 工具的相同要求
+                2. 编辑是原子的：要么全部成功，要么全部不应用
+                3. 仔细规划编辑，避免顺序操作之间冲突
+
+                警告：
+                - 如果 edits.old_string 匹配多个位置且未指定 edits.expected_replacements，工具会失败
+                - 如果指定 expected_replacements 后实际匹配数量不等于该值，工具会失败
+                - 如果 edits.old_string 与文件内容不完全匹配（包括空白），工具会失败
+                - 如果 edits.old_string 和 edits.new_string 相同，工具会失败
+                - 由于编辑会按顺序应用，确保早期编辑不会影响后续编辑要查找的文本
+
+                编辑时：
+                - 确保所有编辑结果都是符合习惯且正确的代码
+                - 不要让代码处于损坏状态
+                - 始终使用绝对文件路径（以 / 开头）
+                """.strip();
+    }
 
     @Override
     public Map<String, Object> parameters() {
@@ -20,13 +59,13 @@ public final class MultiEditTool extends ToolBase {
                 "properties", Map.of(
                         "old_string", prop("string", "要替换的文本"),
                         "new_string", prop("string", "用于替换的新文本"),
-                        "expected_replacements", prop("integer", "期望替换次数，默认 1")
+                        "expected_replacements", prop("integer", "预期执行的替换次数。如果未指定，默认为 1。")
                 ),
                 "required", List.of("old_string", "new_string")
         );
         return params(Map.of(
-                "file_path", prop("string", "要编辑的文件绝对路径"),
-                "edits", arrayProp("按顺序应用的编辑列表", edit)
+                "file_path", prop("string", "要修改文件的绝对路径"),
+                "edits", arrayProp("要按顺序在文件中执行的编辑操作数组", edit)
         ), "file_path", "edits");
     }
 

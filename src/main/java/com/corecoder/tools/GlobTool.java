@@ -13,13 +13,22 @@ public final class GlobTool extends ToolBase {
     public String name() { return "Glob"; }
 
     @Override
-    public String description() { return "按文件匹配模式快速查找文件。"; }
+    public String description() {
+        return """
+                - 快速文件模式匹配工具，适用于任意规模代码库
+                - 支持类似 "**/*.js" 或 "src/**/*.ts" 的 glob patterns
+                - 返回按修改时间排序的匹配文件路径
+                - 当你需要按文件名模式查找文件时使用此工具
+                - 当你进行开放式搜索且可能需要多轮 glob 和 grep 时，改用 Agent 工具
+                - 你可以在一次回复中调用多个工具。推测性地批量执行多个可能有用的搜索通常更好。
+                """.strip();
+    }
 
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "pattern", prop("string", "文件匹配模式，例如 '**/*.py'"),
-                "path", prop("string", "搜索目录，默认当前工作目录")
+                "pattern", prop("string", "用于匹配文件的 glob pattern"),
+                "path", prop("string", "要搜索的目录。如果未指定，将使用当前工作目录。重要：省略此字段以使用默认目录。不要输入 \"undefined\" 或 \"null\"，直接省略即可。如果提供，必须是有效目录路径。")
         ), "pattern");
     }
 

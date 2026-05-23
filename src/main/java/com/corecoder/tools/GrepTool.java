@@ -18,14 +18,25 @@ public final class GrepTool extends ToolBase {
     public String name() { return "Grep"; }
 
     @Override
-    public String description() { return "使用正则表达式搜索文件内容。"; }
+    public String description() {
+        return """
+                - 快速内容搜索工具，适用于任意规模代码库
+                - 使用正则表达式搜索文件内容
+                - 支持完整 regex 语法（例如 "log.*Error"、"function\\s+\\w+" 等）
+                - 可通过 include 参数按文件模式过滤（例如 "*.js"、"*.{ts,tsx}"）
+                - 返回匹配位置和匹配行，最多返回 200 条
+                - 当你需要搜索文件内容时使用此工具
+                - 如果需要识别/统计文件内匹配数量，使用 Bash 工具直接运行 `rg`（ripgrep）。不要使用 `grep`。
+                - 当你进行开放式搜索且可能需要多轮 glob 和 grep 时，改用 Agent 工具
+                """.strip();
+    }
 
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "pattern", prop("string", "要搜索的正则表达式"),
-                "path", prop("string", "要搜索的文件或目录，默认当前工作目录"),
-                "include", prop("string", "只搜索匹配该文件模式的文件")
+                "pattern", prop("string", "用于搜索文件内容的正则表达式 pattern"),
+                "path", prop("string", "要搜索的文件或目录。默认为当前工作目录。"),
+                "include", prop("string", "搜索时包含的文件 pattern（例如 \"*.js\"、\"*.{ts,tsx}\"）")
         ), "pattern");
     }
 

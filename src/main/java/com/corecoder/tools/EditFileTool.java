@@ -10,15 +10,23 @@ public final class EditFileTool extends ToolBase {
     public String name() { return "Edit"; }
 
     @Override
-    public String description() { return "通过精确字符串替换编辑文件，并校验替换次数。"; }
+    public String description() {
+        return """
+                对文件执行严格出现次数校验的精确字符串替换。
+
+                使用：
+                - 编辑 Read 工具输出中的文本时，确保保留行号前缀之后显示的精确缩进（tabs/spaces）。行号前缀格式为：行号 + tab。该 tab 之后的所有内容才是真正的文件内容。绝不要把行号前缀的任何部分包含在 old_string 或 new_string 中。
+                - 始终优先编辑代码库中的已有文件。除非明确需要，绝不要写新文件。
+                """.strip();
+    }
 
     @Override
     public Map<String, Object> parameters() {
         return params(Map.of(
-                "file_path", prop("string", "要编辑的文件路径"),
-                "old_string", prop("string", "要查找的精确文本"),
-                "new_string", prop("string", "用于替换的新文本"),
-                "expected_replacements", prop("integer", "期望替换次数，默认 1")
+                "file_path", prop("string", "要修改文件的绝对路径"),
+                "old_string", prop("string", "要替换的文本"),
+                "new_string", prop("string", "用于替换的新文本（必须不同于 old_string）"),
+                "expected_replacements", prop("integer", "预期执行的替换次数。如果未指定，默认为 1。")
         ), "file_path", "old_string", "new_string");
     }
 
