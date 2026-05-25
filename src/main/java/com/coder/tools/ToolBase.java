@@ -5,24 +5,33 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+// 减少每个具体工具重复写参数解析、类型转换、路径处理这些通用逻辑
 public abstract class ToolBase implements Tools.Tool {
+    // 统一生成工具参数 schema
     protected Map<String, Object> params(Map<String, Object> props, String... required) {
         return Map.of(
                 "type", "object",
+                // 表示不允许额外字段
                 "additionalProperties", false,
+                // 参数定义
                 "properties", props,
+                // 必填字段列表
                 "required", List.of(required)
         );
     }
 
+    // 定义一个字段的 schema
+    // prop("string", "文件路径")
     protected Map<String, Object> prop(String type, String description) {
         return Map.of("type", type, "description", description);
     }
 
+    // 定义数组属性
     protected Map<String, Object> arrayProp(String description, Map<String, Object> items) {
         return Map.of("type", "array", "description", description, "items", items);
     }
 
+    // 从参数 Map 中取字符串
     protected String str(Map<String, Object> args, String key, String def) {
         Object v = args.get(key);
         return v == null ? def : String.valueOf(v);

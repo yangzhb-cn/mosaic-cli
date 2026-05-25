@@ -38,7 +38,7 @@ public class SessionStore {
      */
     public SessionStore() {
         // 默认把会话放到用户目录下的隐藏目录，避免污染项目文件。
-        this(Path.of(System.getProperty("user.home"), ".corecoder", "sessions"));
+        this(Path.of(System.getProperty("user.home"), ".mosaiccoder", "sessions"));
     }
 
     /**

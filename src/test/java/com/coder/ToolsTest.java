@@ -10,6 +10,7 @@ import com.coder.tools.WebSearchTool;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -33,6 +34,15 @@ class ToolsTest {
             assertTrue(fn.containsKey("parameters"));
             assertEquals(false, ((Map<?, ?>) fn.get("parameters")).get("additionalProperties"));
         }
+    }
+
+    @Test
+    void allToolsCanAppendExtraTools() {
+        Tools.Tool extra = new ExtraTool();
+        List<Tools.Tool> tools = Tools.all(null, List.of(extra));
+
+        assertNotNull(Tools.get(tools, "mcp_demo_echo"));
+        assertEquals(14, tools.size());
     }
 
     @Test
@@ -191,6 +201,28 @@ class ToolsTest {
 
         @Override
         public void typing(String chatId) {
+        }
+    }
+
+    private static final class ExtraTool implements Tools.Tool {
+        @Override
+        public String name() {
+            return "mcp_demo_echo";
+        }
+
+        @Override
+        public String description() {
+            return "extra tool";
+        }
+
+        @Override
+        public Map<String, Object> parameters() {
+            return Map.of("type", "object", "additionalProperties", false, "properties", Collections.emptyMap(), "required", List.of());
+        }
+
+        @Override
+        public String execute(Map<String, Object> args) {
+            return "ok";
         }
     }
 }

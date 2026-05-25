@@ -1,5 +1,7 @@
 package com.coder;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LlmClientTest {
+    private static final ObjectMapper JSON = new ObjectMapper();
     HttpServer server;
 
     @AfterEach
@@ -46,6 +49,13 @@ class LlmClientTest {
         assertEquals(5, r.completionTokens());
         assertEquals(10, llm.totalPromptTokens);
         assertEquals(5, llm.totalCompletionTokens);
+
+        JsonNode request = JSON.readTree(llm.lastRequestJson());
+        assertEquals("test-model", request.path("model").asText());
+        assertEquals("user", request.path("messages").get(0).path("role").asText());
+        assertEquals("hi", request.path("messages").get(0).path("content").asText());
+        assertTrue(request.path("stream").asBoolean());
+        assertTrue(request.path("stream_options").path("include_usage").asBoolean());
     }
 
     @Test

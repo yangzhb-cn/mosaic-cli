@@ -12,19 +12,29 @@ import java.util.Map;
 import java.util.Set;
 
 public final class Tools {
+
+    // 用于把 todo 列表转成 JSON 字符串
     private static final ObjectMapper JSON = new ObjectMapper();
+    // 记录被修改过的文件路径
     private static final Set<String> CHANGED = new LinkedHashSet<>();
+    // 保存待办事项列表
     private static final List<Map<String, Object>> TODOS = new ArrayList<>();
 
+    // 禁止外部实例化，说明它是一个纯工具类
     private Tools() {
     }
 
     public interface Tool {
+        // 工具名
         String name();
+        // 工具说明
         String description();
+        //  JSON Schema 风格参数
         Map<String, Object> parameters();
+        // 真正执行工具逻辑
         String execute(Map<String, Object> args);
 
+        // 把工具包装成统一的函数调用格式
         default Map<String, Object> schema() {
             return Map.of("type", "function", "function", Map.of(
                     "name", name(),
@@ -34,7 +44,12 @@ public final class Tools {
         }
     }
 
+    // 注册全部工具
     public static List<Tool> all(Agent parent) {
+        return all(parent, List.of());
+    }
+
+    public static List<Tool> all(Agent parent, List<Tool> extraTools) {
         List<Tool> tools = new ArrayList<>(List.of(
                 new BashTool(),
                 new GlobTool(),
@@ -51,9 +66,18 @@ public final class Tools {
                 new AgentTool(parent)
         ));
         if (parent != null && parent.imClient() != null) tools.add(new SendMessageTool(parent));
+        tools.addAll(extraTools);
         return List.copyOf(tools);
     }
 
+    // 获取tools的名字
+    public static Set<String> names(List<Tool> tools) {
+        Set<String> names = new LinkedHashSet<>();
+        for (Tool tool : tools) names.add(tool.name());
+        return names;
+    }
+
+    // 按名字查工具
     public static Tool get(List<Tool> tools, String name) {
         for (Tool t : tools) {
             if (t.name().equals(name)) {
@@ -63,6 +87,7 @@ public final class Tools {
         return null;
     }
 
+    // 记录修改过的文件
     public static Set<String> changedFiles() {
         return CHANGED;
     }
@@ -71,7 +96,9 @@ public final class Tools {
         CHANGED.add(path.toString());
     }
 
+    // 管理 todo 列表
     public static void replaceTodos(List<Map<String, Object>> todos) {
+        // “当前状态”，不是增量累积
         TODOS.clear();
         TODOS.addAll(todos);
     }

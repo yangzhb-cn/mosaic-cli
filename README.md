@@ -1,12 +1,14 @@
 # Core CLI Java
 
-一个简洁的 Java Agent CLI 项目，支持命令行交互、工具调用、子 Agent、可选 Telegram IM，以及 Tavily 联网搜索。
+一个简洁的 Java Agent CLI 项目，支持命令行交互、工具调用、子 Agent、可选 Telegram IM、Tavily 联网搜索、最简 MCP 和本地 Skills。
 
 ## 功能概览
 
 - CLI 对话：默认启动交互式命令行。
 - 工具系统：文件读写、搜索、Shell、Todo、子 Agent、WebFetch、WebSearch。
 - 联网能力：`WebFetch` 直接抓取 URL，`WebSearch` 调 Tavily Search API。
+- MCP：启动时读取 `~/.mosaiccoder/mcp.json`，加载 stdio / HTTP / SSE MCP server 的 tools。
+- Skills：启动时读取 `~/.mosaiccoder/skills/*/SKILL.md`，注入系统提示词。
 - 会话上下文：支持会话存储和上下文压缩。
 - 可选 IM：配置 Telegram 后可把消息转给 Agent。
 
@@ -34,6 +36,37 @@ TELEGRAM_OWNER_ID=your_user_id
 
 `DEEPSEEK_API_KEY` 是启动 CLI 必需项。`TAVILY_API_KEY` 只在调用 `WebSearch` 工具时需要。
 
+MCP 配置文件：
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "env": {}
+    },
+    "remote": {
+      "type": "http",
+      "url": "http://localhost:3000",
+      "endpoint": "/mcp",
+      "headers": {}
+    },
+    "legacy-sse": {
+      "type": "sse",
+      "url": "http://localhost:3001",
+      "endpoint": "/sse",
+      "headers": {}
+    }
+  }
+}
+```
+
+`type` 可选值：`stdio`、`http`/`streamable-http`、`sse`。旧的 stdio 配置不写 `type` 也兼容。
+
+Skill 文件放在 `~/.mosaiccoder/skills/<name>/SKILL.md`。启动时会加载全部 Skill，不做关键词匹配。
+
 ## 运行
 
 开发测试：
@@ -54,6 +87,12 @@ mvn -DskipTests package
 java -jar target/core-cli-0.1.0.jar
 ```
 
+查看 MCP 状态：
+
+```text
+/mcp
+```
+
 ## 项目结构
 
 ```text
@@ -65,6 +104,8 @@ src/main/java/com/coder/
   Prompt.java            # 系统提示词
   cli/                   # 命令行交互
   im/                    # Telegram IM 接入
+  mcp/                   # stdio MCP 加载和工具包装
+  skill/                 # 本地 Skill 加载
   tools/                 # 工具实现和注册
 ```
 

@@ -10,6 +10,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import com.coder.im.ImClient;
+import com.coder.prompt.Prompt;
+import com.coder.skill.Skill;
 import com.coder.tools.ToolExecutor;
 import com.coder.tools.Tools;
 
@@ -23,6 +25,8 @@ public class Agent {
     private final int maxRounds;
     private final String system;
     private final ImClient im;
+    private final List<Skill> skills;
+    private final List<Tools.Tool> mcpTools;
     private volatile String currentImChatId;
 
     // 通用 Agent
@@ -31,25 +35,37 @@ public class Agent {
     }
 
     public Agent(LlmClient llm, int maxContextTokens, ImClient im) {
+        this(llm, maxContextTokens, im, List.of(), List.of());
+    }
+
+    public Agent(LlmClient llm, int maxContextTokens, ImClient im, List<Tools.Tool> extraTools, List<Skill> skills) {
         this.llm = llm;
         this.im = im;
+        this.skills = List.copyOf(skills);
         this.context = new ContextManager(maxContextTokens);
         // 最多允许模型-工具循环多少轮
         this.maxRounds = 50;
-        this.tools = Tools.all(this);
+        this.tools = Tools.all(this, extraTools);
+        this.mcpTools = mcpTools(this.tools);
         this.toolExecutor = new ToolExecutor(tools);
-        this.system = Prompt.systemPrompt(tools);
+        this.system = Prompt.systemPrompt(systemTools(tools), this.skills);
     }
 
     //  子 Agen 构造函数
     Agent(LlmClient llm, List<Tools.Tool> tools, int maxContextTokens, int maxRounds) {
+        this(llm, tools, maxContextTokens, maxRounds, List.of());
+    }
+
+    Agent(LlmClient llm, List<Tools.Tool> tools, int maxContextTokens, int maxRounds, List<Skill> skills) {
         this.llm = llm;
         this.im = null;
+        this.skills = List.copyOf(skills);
         this.tools = tools;
+        this.mcpTools = mcpTools(this.tools);
         this.toolExecutor = new ToolExecutor(tools);
         this.context = new ContextManager(maxContextTokens);
         this.maxRounds = maxRounds;
-        this.system = Prompt.systemPrompt(tools);
+        this.system = Prompt.systemPrompt(systemTools(tools), this.skills);
     }
 
     // Agent 的主入口
@@ -134,7 +150,7 @@ public class Agent {
                 // 从当前工具列表里过滤掉名为 "Task" 的工具
                 .filter(t -> !"Task".equals(t.name()))
                 .toList();
-        Agent sub = new Agent(llm, subTools, context.maxTokens, maxRounds);
+        Agent sub = new Agent(llm, subTools, context.maxTokens, maxRounds, skills);
         // 让子 Agent 执行任务，且不给 token 回调、工具回调
         return sub.chat(task, null, null);
     }
@@ -143,8 +159,33 @@ public class Agent {
     private List<Map<String, Object>> fullMessages() {
         List<Map<String, Object>> all = new ArrayList<>();
         all.add(Map.of("role", "system", "content", system));
-        all.addAll(messages);
+        for (Map<String, Object> message : messages) {
+            all.add(new LinkedHashMap<>(message));
+        }
+        injectSystemReminder(all);
         return all;
     }
 
+    private void injectSystemReminder(List<Map<String, Object>> all) {
+        for (int i = all.size() - 1; i >= 0; i--) {
+            Map<String, Object> message = all.get(i);
+            if (!"user".equals(message.get("role"))) continue;
+            Object content = message.get("content");
+            String reminder = Prompt.systemReminder(mcpTools, skills);
+            if (!reminder.isBlank()) message.put("content", reminder + "\n\n" + (content == null ? "" : content));
+            return;
+        }
+    }
+
+    private static List<Tools.Tool> systemTools(List<Tools.Tool> tools) {
+        return tools.stream().filter(t -> !isMcpTool(t)).toList();
+    }
+
+    private static List<Tools.Tool> mcpTools(List<Tools.Tool> tools) {
+        return tools.stream().filter(Agent::isMcpTool).toList();
+    }
+
+    private static boolean isMcpTool(Tools.Tool tool) {
+        return tool.name().startsWith("mcp_");
+    }
 }

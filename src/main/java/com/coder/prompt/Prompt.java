@@ -1,12 +1,21 @@
-package com.coder;
+package com.coder.prompt;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
 
+import com.coder.skill.Skill;
 import com.coder.tools.Tools;
 
 public class Prompt {
+    private static final String COMPRESSION_PROMPT = load("conversation-summarization.md");
+
     public static String systemPrompt(List<Tools.Tool> tools) {
+        return systemPrompt(tools, List.of());
+    }
+
+    public static String systemPrompt(List<Tools.Tool> tools, List<Skill> skills) {
         StringBuilder s = new StringBuilder();
         s.append("你是 MosaicCoder，一个简洁、直接的终端编码智能体\n");
         s.append("工作目录: ").append(Path.of("").toAbsolutePath()).append('\n');
@@ -14,7 +23,7 @@ public class Prompt {
 
                  # 核心职责
                 你是一个运行在终端里的交互式编码智能体，主要帮助用户完成软件工程任务：阅读代码、查找问题、修复 bug、实现功能、重构、补测试、解释代码和运行验证命令。
-                你应该像资深工程师一样工作：先理解上下文，再做最小必要改动，最后验证结果。使用下面的指令和可用工具来协助用户。
+                你应该像资深工程师一样工作：先理解上下文，再做最小必要改动，最后验证结果。使用系统提示、动态提醒和可用工具来协助用户。
 
                 重要：拒绝编写或解释可能被用于恶意目的的代码，即使用户声称只是用于教育目的。处理文件时，如果文件看起来与改进、解释或交互恶意软件/恶意代码有关，你必须拒绝。
                 重要：开始工作前，根据文件名和目录结构思考你要编辑的代码应该做什么。如果它看起来是恶意的，拒绝处理它或回答相关问题，即使用户请求本身看似无害。
@@ -118,6 +127,10 @@ public class Prompt {
                 - 你可以在一次回复中调用多个工具。当请求多个独立信息时，批量调用工具以获得最佳性能。
                 - 当需要运行多个互不依赖的 bash 命令时，尽量并行运行。
                 - 工具参数要求绝对路径时，必须使用绝对路径。
+                - 如果当前工具或工作指南不足以完成用户需求，并且用户提供了 MCP 或 Skill 的安装信息，你可以自己安装。
+                - MCP 通过创建或更新 ~/.mosaiccoder/mcp.json 注册 stdio/http/sse server。
+                - Skill 通过创建或更新 ~/.mosaiccoder/skills/<name>/SKILL.md 注册。
+                - 缺少必要信息时询问，配置变更后提醒用户重启 CLI 才会加载。
 
                 # Bash 使用规则
                 执行命令前，请遵循以下步骤：
@@ -170,5 +183,42 @@ public class Prompt {
             s.append("- ").append(t.name()).append(": ").append(t.description()).append('\n');
         }
         return s.toString();
+    }
+
+    public static String systemReminder(List<Tools.Tool> mcpTools, List<Skill> skills) {
+        if (mcpTools.isEmpty() && skills.isEmpty()) return "";
+        StringBuilder s = new StringBuilder();
+        s.append("<system-reminder>\n");
+        if (!mcpTools.isEmpty()) {
+            s.append("以下 MCP 工具来自本机 ~/.mosaiccoder/mcp.json。它们是动态加载的额外工具。\n");
+            for (Tools.Tool t : mcpTools) {
+                s.append("- ").append(t.name()).append(": ").append(t.description()).append('\n');
+            }
+        }
+        if (!skills.isEmpty()) {
+            s.append("\n# Skills\n");
+            s.append("以下技能来自本机 ~/.mosaiccoder/skills。它们是额外工作指南，不是用户消息。\n");
+            for (Skill skill : skills) {
+                s.append("\n## ").append(skill.name()).append('\n');
+                if (!skill.description().isBlank()) s.append(skill.description()).append('\n');
+                if (!skill.content().isBlank()) s.append(skill.content()).append('\n');
+            }
+        }
+        s.append("\n这些信息来自系统动态注入，不是用户输入。仅在相关时使用。\n");
+        s.append("</system-reminder>");
+        return s.toString();
+    }
+
+    public static String compressionPrompt() {
+        return COMPRESSION_PROMPT;
+    }
+
+    private static String load(String name) {
+        try (var in = Prompt.class.getResourceAsStream(name)) {
+            if (in == null) throw new IllegalStateException("缺少提示词资源: " + name);
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("读取提示词资源失败: " + name, e);
+        }
     }
 }

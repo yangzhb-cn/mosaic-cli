@@ -6,10 +6,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import com.coder.prompt.Prompt;
+
 /**
  * 管理对话上下文长度，在上下文过大时按层级压缩历史消息。
  */
 public class ContextManager {
+    /** 动态系统提醒只用于请求注入，压缩上下文时要忽略。 */
+    private static final Pattern SYSTEM_REMINDER = Pattern.compile("(?s)<system-reminder>.*?</system-reminder>\\R*");
+
     /** 对话允许的最大估算 token 数。 */
     public final int maxTokens;
 
@@ -53,7 +58,7 @@ public class ContextManager {
 
             // 按“约 3 个字符 1 个 token”的简化规则累计文本。
             if (content != null) {
-                total += String.valueOf(content).length() / 3;
+                total += stripSystemReminder(String.valueOf(content)).length() / 3;
             }
 
             // 读取 assistant 消息里可能携带的 tool_calls。
@@ -67,6 +72,14 @@ public class ContextManager {
 
         // 返回当前上下文的估算 token 总量。
         return total;
+    }
+
+    /**
+     * 去掉动态注入的系统提醒，避免它进入压缩摘要。
+     */
+    public static String stripSystemReminder(String text) {
+        if (text == null || text.isEmpty()) return "";
+        return SYSTEM_REMINDER.matcher(text).replaceAll("");
     }
 
     /**
@@ -234,7 +247,7 @@ public class ContextManager {
             try {
                 // 请求 LLM 生成简短摘要，并要求保留关键工程上下文。
                 LlmClient.Response r = llm.chat(List.of(
-                        Map.of("role", "system", "content", "把这段对话压缩成简短摘要。保留文件路径、决策、错误和当前任务状态。"),
+                        Map.of("role", "system", "content", Prompt.compressionPrompt()),
                         Map.of("role", "user", "content", flatten(messages, 15000))
                 ), null, null, null);
 
@@ -264,7 +277,8 @@ public class ContextManager {
             out.append('[').append(m.getOrDefault("role", "?")).append("] ");
 
             // 取出消息内容；一条消息最多保留 400 字符。
-            out.append(String.valueOf(m.getOrDefault("content", "")), 0, Math.min(400, String.valueOf(m.getOrDefault("content", "")).length()));
+            String content = stripSystemReminder(String.valueOf(m.getOrDefault("content", "")));
+            out.append(content, 0, Math.min(400, content.length()));
 
             // 每条消息后换行，保持可读性。
             out.append('\n');
@@ -295,7 +309,7 @@ public class ContextManager {
         // 遍历所有消息内容。
         for (Map<String, Object> m : messages) {
             // 取出消息文本，缺失时按空字符串处理。
-            String text = String.valueOf(m.getOrDefault("content", ""));
+            String text = stripSystemReminder(String.valueOf(m.getOrDefault("content", "")));
 
             // 从文本中提取最多 20 个文件路径。
             file.matcher(text).results().limit(20).forEach(r -> files.add(r.group()));

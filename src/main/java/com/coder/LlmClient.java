@@ -27,6 +27,7 @@ public class LlmClient {
     public final double temperature;
     public int totalPromptTokens;
     public int totalCompletionTokens;
+    private volatile String lastRequestJson = "";
 
     // 一次工具调用
     public record ToolCall(String id, String name, Map<String, Object> arguments) {}
@@ -71,6 +72,10 @@ public class LlmClient {
         this.temperature = temperature;
     }
 
+    public String lastRequestJson() {
+        return lastRequestJson;
+    }
+
     // 如果工具已经启动，后面 HTTP 流出错，就不能自动重试。否则可能出现：
     // 第一次请求已经执行 Write，请求中途报错，自动重试，Write 又执行一次
     public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) throws IOException {
@@ -108,6 +113,7 @@ public class LlmClient {
         if (tools != null && !tools.isEmpty()) body.put("tools", tools);
         // 要求流式返回中附带 token 用量信息
         if (includeUsage) body.put("stream_options", Map.of("include_usage", true));
+        lastRequestJson = toPrettyJson(body);
 
         // 2. 构造 HTTP 请求
         Request req = new Request.Builder()
@@ -242,6 +248,14 @@ public class LlmClient {
             return JSON.writeValueAsString(o);
         } catch (JsonProcessingException e) {
             return "{}";
+        }
+    }
+
+    private static String toPrettyJson(Object o) {
+        try {
+            return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(o);
+        } catch (JsonProcessingException e) {
+            return toJson(o);
         }
     }
 

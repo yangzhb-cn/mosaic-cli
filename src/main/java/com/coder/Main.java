@@ -5,6 +5,13 @@ import com.coder.cli.CliCommands;
 import com.coder.im.ImClient;
 import com.coder.im.ImMessage;
 import com.coder.im.TelegramImClient;
+import com.coder.mcp.McpManager;
+import com.coder.skill.Skill;
+import com.coder.skill.SkillLoader;
+import com.coder.tools.Tools;
+
+import java.util.List;
+import java.util.Set;
 
 public class Main {
     // 版本号
@@ -27,8 +34,16 @@ public class Main {
         // 初始化 LLM 客户端
         LlmClient llm = new LlmClient(c.model, c.apiKey, c.baseUrl, c.temperature);
 
+        Set<String> usedToolNames = Tools.names(Tools.all(null));
+        if (im != null) usedToolNames.add("send_message");
+        McpManager mcp = McpManager.loadDefault(usedToolNames);
+        List<Skill> skills = SkillLoader.loadDefault();
+
+        System.out.println(mcp.summary());
+        System.out.println("Skills: " + skills.size() + " loaded");
+
         // 传入最大窗口，便于上下文压缩的配置策略
-        Agent agent = new Agent(llm, c.maxContextTokens, im);
+        Agent agent = new Agent(llm, c.maxContextTokens, im, mcp.tools(), skills);
         // 创建会话存储
         SessionStore sessions = new SessionStore();
 
@@ -36,7 +51,11 @@ public class Main {
         if (im != null) startTelegram(im, agent, c);
         
         // 启动命令行交互
-        CliCommands.repl(agent, llm, sessions);
+        try {
+            CliCommands.repl(agent, llm, sessions, mcp);
+        } finally {
+            mcp.close();
+        }
     }
 
     private static void startTelegram(ImClient im, Agent agent, Config c) {

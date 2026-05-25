@@ -9,6 +9,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+
+import com.coder.prompt.Prompt;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -88,10 +91,56 @@ class ConfigSessionContextTest {
         assertTrue(messages.size() < 24);
     }
 
+    @Test
+    void contextCompressionIgnoresSystemReminder() {
+        String reminder = "<system-reminder>\n/tmp/secret.java\nHidden ERROR\n" + "x".repeat(3000) + "\n</system-reminder>\n\nhello";
+        assertEquals("hello", ContextManager.stripSystemReminder(reminder));
+        assertTrue(ContextManager.estimateTokens(List.of(msg("user", reminder))) < 10);
+
+        ContextManager ctx = new ContextManager(30);
+        List<Map<String, Object>> messages = new ArrayList<>();
+        messages.add(msg("user", reminder + "\n" + "normal ".repeat(30)));
+        for (int i = 0; i < 11; i++) {
+            messages.add(msg("assistant", "normal ".repeat(30)));
+        }
+
+        assertTrue(ctx.maybeCompress(messages, null));
+        String summary = String.valueOf(messages.getFirst().get("content"));
+        assertFalse(summary.contains("/tmp/secret.java"));
+        assertFalse(summary.contains("Hidden ERROR"));
+    }
+
+    @Test
+    void contextUsesCompressionPrompt() {
+        CapturingLlm llm = new CapturingLlm();
+        ContextManager ctx = new ContextManager(300);
+        List<Map<String, Object>> messages = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            messages.add(msg("user", "message " + i + " " + "x".repeat(100)));
+        }
+
+        assertTrue(ctx.maybeCompress(messages, llm));
+        assertEquals(Prompt.compressionPrompt(), llm.systemPrompt);
+    }
+
     private static Map<String, Object> msg(String role, String content) {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("role", role);
         m.put("content", content);
         return m;
+    }
+
+    private static final class CapturingLlm extends LlmClient {
+        private String systemPrompt;
+
+        private CapturingLlm() {
+            super("test-model", "key", "http://localhost", 0);
+        }
+
+        @Override
+        public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
+            systemPrompt = String.valueOf(messages.getFirst().get("content"));
+            return new Response("captured summary", "", List.of(), 0, 0);
+        }
     }
 }

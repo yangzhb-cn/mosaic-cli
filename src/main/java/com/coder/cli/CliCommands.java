@@ -14,6 +14,7 @@ import com.coder.Agent;
 import com.coder.ContextManager;
 import com.coder.LlmClient;
 import com.coder.SessionStore;
+import com.coder.mcp.McpManager;
 import com.coder.tools.Tools;
 
 import java.util.List;
@@ -28,6 +29,8 @@ public final class CliCommands {
             command("/tokens", "查看 token 使用情况"),
             command("/compact", "压缩上下文"),
             command("/diff", "查看当前会话修改了哪些文件"),
+            command("/mcp", "查看 MCP 加载状态"),
+            command("/last-request", "查看上一轮发给 LLM 的完整 JSON 请求"),
             command("/save", "保存当前会话"),
             command("/sessions", "列出保存的会话"),
             command("/exit", "退出"));
@@ -41,6 +44,10 @@ public final class CliCommands {
 
     // 交互循环
     public static void repl(Agent agent, LlmClient llm, SessionStore sessions) throws Exception {
+        repl(agent, llm, sessions, McpManager.empty());
+    }
+
+    public static void repl(Agent agent, LlmClient llm, SessionStore sessions, McpManager mcp) throws Exception {
         System.out.println("💡 输入 / 后按 Tab 查看命令，输入 /exit 退出。");
 
         // 创建终端对象，构建输入读取器，绑定终端，设置命令补全，自动列出匹配的补全项，生成LineReader
@@ -68,7 +75,7 @@ public final class CliCommands {
             }
             // 把输入当作斜杠命令处理
             // 如果返回 true，说明它已经处理了这个命令，不需要再当聊天内容处理
-            if (handle(line, agent, llm, sessions)) {
+            if (handle(line, agent, llm, sessions, mcp)) {
                 continue;
             }
             // 当成普通聊天内容交给 chat(...) 处理
@@ -91,6 +98,10 @@ public final class CliCommands {
 
     // 负责处理斜杠命令
     public static boolean handle(String line, Agent agent, LlmClient llm, SessionStore sessions) throws Exception {
+        return handle(line, agent, llm, sessions, McpManager.empty());
+    }
+
+    public static boolean handle(String line, Agent agent, LlmClient llm, SessionStore sessions, McpManager mcp) throws Exception {
         if (line.equals("/reset")) {
             agent.reset();
             System.out.println("🧹 对话已清空。");
@@ -119,6 +130,15 @@ public final class CliCommands {
                 System.out.println("📄 本会话没有修改文件。");
             else
                 Tools.changedFiles().stream().sorted().forEach(f -> System.out.println("  📝 " + f));
+            return true;
+        }
+        if (line.equals("/mcp")) {
+            System.out.println(mcp.details());
+            return true;
+        }
+        if (line.equals("/last-request")) {
+            String json = llm == null ? "" : llm.lastRequestJson();
+            System.out.println(json == null || json.isBlank() ? "📭 暂无 LLM 请求。" : json);
             return true;
         }
         if (line.equals("/save")) {

@@ -2,6 +2,7 @@ package com.coder;
 
 import org.junit.jupiter.api.Test;
 
+import com.coder.skill.Skill;
 import com.coder.tools.Tools;
 
 import java.io.IOException;
@@ -53,6 +54,30 @@ class AgentTest {
     }
 
     @Test
+    void injectsSystemReminderIntoRequestOnly() throws Exception {
+        CapturingFakeLlm llm = new CapturingFakeLlm();
+        Agent agent = new Agent(llm, List.of(
+                new SimpleTool("Normal", "Normal tool"),
+                new SimpleTool("mcp_demo_echo", "MCP echo")
+        ), 128000, 1, List.of(new Skill("test-skill", "Test skill", "Skill body")));
+
+        String response = agent.chat("hello", null, null);
+
+        assertEquals("done", response);
+        String system = String.valueOf(llm.lastMessages.getFirst().get("content"));
+        String sent = String.valueOf(llm.lastMessages.getLast().get("content"));
+        assertTrue(system.contains("- Normal: Normal tool"));
+        assertFalse(system.contains("mcp_demo_echo"));
+        assertTrue(sent.startsWith("<system-reminder>"));
+        assertFalse(sent.contains("Normal tool"));
+        assertTrue(sent.contains("- mcp_demo_echo: MCP echo"));
+        assertTrue(sent.contains("## test-skill"));
+        assertTrue(sent.endsWith("hello"));
+        assertEquals("hello", agent.messages.getFirst().get("content"));
+        assertFalse(String.valueOf(agent.messages.getFirst().get("content")).contains("<system-reminder>"));
+    }
+
+    @Test
     void rejectsUnknownToolArgumentsBeforeExecute() throws Exception {
         InvalidArgsFakeLlm llm = new InvalidArgsFakeLlm();
         StrictTool tool = new StrictTool();
@@ -73,6 +98,20 @@ class AgentTest {
         @Override
         public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
             if (onToken != null) onToken.accept("done");
+            return new Response("done", "", List.of(), 0, 0);
+        }
+    }
+
+    private static final class CapturingFakeLlm extends LlmClient {
+        private List<Map<String, Object>> lastMessages;
+
+        private CapturingFakeLlm() {
+            super("test-model", "key", "http://localhost", 0);
+        }
+
+        @Override
+        public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
+            lastMessages = messages;
             return new Response("done", "", List.of(), 0, 0);
         }
     }
@@ -174,6 +213,36 @@ class AgentTest {
             }
             // 返回可断言的工具结果。
             return result;
+        }
+    }
+
+    private static final class SimpleTool implements Tools.Tool {
+        private final String name;
+        private final String description;
+
+        private SimpleTool(String name, String description) {
+            this.name = name;
+            this.description = description;
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public String description() {
+            return description;
+        }
+
+        @Override
+        public Map<String, Object> parameters() {
+            return Map.of("type", "object", "properties", Map.of(), "required", List.of());
+        }
+
+        @Override
+        public String execute(Map<String, Object> args) {
+            return "";
         }
     }
 
