@@ -10,6 +10,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+// 执行 shell 命令，带超时、危险命令拦截、输出截断
 public final class BashTool extends ToolBase {
     private static final String[][] DANGEROUS = {
             {"\\brm\\s+(-\\w*)?-r\\w*\\s+(/|~|\\$HOME)", "递归删除根目录或用户目录"},

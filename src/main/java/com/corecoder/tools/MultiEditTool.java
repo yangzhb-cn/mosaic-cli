@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
+// 一个文件内多处精确替换，全部成功才写入
 public final class MultiEditTool extends ToolBase {
     @Override
     public String name() { return "MultiEdit"; }

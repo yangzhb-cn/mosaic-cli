@@ -4,6 +4,7 @@ import com.corecoder.Agent;
 
 import java.util.Map;
 
+// 启动子 Agent 做子任务，子 Agent 不再拥有 Task 工具
 public final class AgentTool extends ToolBase {
     private final Agent parent;
 

@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
+// 写入/覆盖文件，并记录 changed file
 public final class WriteFileTool extends ToolBase {
     @Override
     public String name() { return "Write"; }

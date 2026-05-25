@@ -39,6 +39,30 @@ class AgentTest {
         assertEquals("call_fast", agent.messages.get(3).get("tool_call_id"));
     }
 
+    @Test
+    void streamsTextTokensOnce() throws Exception {
+        TextFakeLlm llm = new TextFakeLlm();
+        Agent agent = new Agent(llm, List.of(), 128000, 1);
+        List<String> tokens = new java.util.ArrayList<>();
+
+        String response = agent.chat("say done", tokens::add, null);
+
+        assertEquals("done", response);
+        assertEquals(List.of("done"), tokens);
+    }
+
+    private static final class TextFakeLlm extends LlmClient {
+        private TextFakeLlm() {
+            super("test-model", "key", "http://localhost", 0);
+        }
+
+        @Override
+        public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
+            if (onToken != null) onToken.accept("done");
+            return new Response("done", "", List.of(), 0, 0);
+        }
+    }
+
     private static final class StreamingFakeLlm extends LlmClient {
         private final CountDownLatch started;
         private boolean toolsStartedBeforeResponse;

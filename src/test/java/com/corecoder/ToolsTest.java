@@ -3,6 +3,7 @@ package com.corecoder;
 import com.corecoder.im.ImClient;
 import com.corecoder.im.ImMessage;
 import com.corecoder.tools.Tools;
+import com.corecoder.tools.WebSearchTool;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -21,7 +22,9 @@ class ToolsTest {
     @Test
     void allToolsExposeSchemas() {
         List<Tools.Tool> tools = Tools.all(null);
-        assertEquals(11, tools.size());
+        assertEquals(13, tools.size());
+        assertNotNull(Tools.get(tools, "WebFetch"));
+        assertNotNull(Tools.get(tools, "WebSearch"));
         for (Tools.Tool t : tools) {
             Map<String, Object> schema = t.schema();
             assertEquals("function", schema.get("type"));
@@ -139,11 +142,17 @@ class ToolsTest {
     }
 
     @Test
+    void webSearchRequiresTavilyApiKey() {
+        Tools.Tool search = new WebSearchTool(Map.of(), temp);
+        assertTrue(search.execute(Map.of("query", "java")).contains("TAVILY_API_KEY"));
+    }
+
+    @Test
     void imAgentRegistersSendMessageTool() {
         FakeImClient im = new FakeImClient();
         Agent agent = new Agent(new LlmClient("m", "k", "http://localhost", 0), 1000, im);
         assertNotNull(Tools.get(agent.tools, "send_message"));
-        assertEquals(12, agent.tools.size());
+        assertEquals(14, agent.tools.size());
     }
 
     @Test

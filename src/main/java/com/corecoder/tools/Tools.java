@@ -44,6 +44,8 @@ public final class Tools {
                 new EditFileTool(),
                 new MultiEditTool(),
                 new WriteFileTool(),
+                new WebFetchTool(),
+                new WebSearchTool(),
                 new TodoReadTool(),
                 new TodoWriteTool(),
                 new AgentTool(parent)

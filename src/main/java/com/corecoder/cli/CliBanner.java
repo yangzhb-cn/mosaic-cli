@@ -34,7 +34,7 @@ public final class CliBanner {
 
     private static void printPlainBanner(String meta, int width) {
         System.out.println();
-        System.out.println("╭─ MisaicCoder CLI");
+        System.out.println("╭─ MosaicCoder CLI");
         System.out.println("│  " + meta);
         System.out.println("╰" + "─".repeat(width));
         System.out.println();

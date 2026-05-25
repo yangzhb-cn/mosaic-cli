@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
+// 读取文本文件，带行号、offset、limit
 public final class ReadFileTool extends ToolBase {
     @Override
     public String name() { return "Read"; }

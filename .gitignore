@@ -1,6 +1,11 @@
 # Maven
 target/
 
+# Web frontend
+web/node_modules/
+web/.next/
+web/out/
+
 # IDE
 .idea/
 *.iml
@@ -16,3 +21,4 @@ target/
 # Temp files
 *.tmp
 *.swp
+.playwright-cli/

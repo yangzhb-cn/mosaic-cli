@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
+// 列出绝对路径目录内容，支持 ignore
 public final class LsTool extends ToolBase {
     @Override
     public String name() { return "LS"; }

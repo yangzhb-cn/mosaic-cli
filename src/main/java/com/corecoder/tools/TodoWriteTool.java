@@ -3,6 +3,7 @@ package com.corecoder.tools;
 import java.util.List;
 import java.util.Map;
 
+// 替换当前 todo 列表
 public final class TodoWriteTool extends ToolBase {
     @Override
     public String name() { return "TodoWrite"; }

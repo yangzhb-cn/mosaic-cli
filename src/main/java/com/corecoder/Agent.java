@@ -64,7 +64,11 @@ public class Agent {
             // 本轮工具执行共用一个固定线程池，最多并行 8 个工具。
             try (var pool = Executors.newFixedThreadPool(8)) {
                 // 4. 调用大模型: 完整消息，包括 system prompt;工具 schema 列表;把流式返回的文本不断追加到 text
-                LlmClient.Response r = llm.chat(fullMessages(), toolSchemas(), text::append,
+                LlmClient.Response r = llm.chat(fullMessages(), toolSchemas(), token -> {
+                            text.append(token);
+                            // 回调
+                            if (onToken != null) onToken.accept(token);
+                        },
                         // 某个流式工具参数拼完整后，立即提交到线程池执行。
                         (idx, tc) -> submit(futures, pool, idx, tc, onTool));
 
@@ -72,8 +76,6 @@ public class Agent {
                 if (r.toolCalls().isEmpty()) {
                     // 把模型回复加入消息历史。
                     messages.add(r.message());
-                    // 如果有流式回调，并且文本不为空，就把完整文本传给回调
-                    if (onToken != null && !text.isEmpty()) onToken.accept(text.toString());
                     // 返回模型的最终内容，结束 chat
                     return r.content();
                 }

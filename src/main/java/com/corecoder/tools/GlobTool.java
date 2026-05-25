@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
+// 	按 glob pattern 找文件，按修改时间排序
 public final class GlobTool extends ToolBase {
     @Override
     public String name() { return "Glob"; }

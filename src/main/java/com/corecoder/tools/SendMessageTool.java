@@ -4,6 +4,7 @@ import com.corecoder.Agent;
 
 import java.util.Map;
 
+// 	IM 模式下主动给当前 Telegram 会话发消息
 public final class SendMessageTool extends ToolBase {
     private final Agent agent;
 
