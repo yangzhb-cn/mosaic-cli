@@ -121,7 +121,7 @@ public class Agent {
 
     // 把一个工具调用按 index 提交到线程池；已提交过则直接复用原 Future。
     private void submit(Map<Integer, Future<String>> futures, java.util.concurrent.ExecutorService pool, int idx, LlmClient.ToolCall tc, BiConsumer<String, Map<String, Object>> onTool) {
-        // computeIfAbsent 保证同一个 index 不会因为流式回调和兜底逻辑被执行两次。
+        // computeIfAbsent 保证同一个 index 不会因为流式回调和兜底逻辑(未流式调用)被执行两次。
         futures.computeIfAbsent(idx, ignored -> pool.submit(() -> exec(tc, onTool)));
     }
 

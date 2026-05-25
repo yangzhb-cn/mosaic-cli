@@ -1,14 +1,10 @@
 package com.coder;
 
-import java.nio.file.Path;
-import java.util.concurrent.CountDownLatch;
-
 import com.coder.cli.CliBanner;
 import com.coder.cli.CliCommands;
 import com.coder.im.ImClient;
 import com.coder.im.ImMessage;
 import com.coder.im.TelegramImClient;
-import com.coder.web.WebServer;
 
 public class Main {
     // 版本号
@@ -30,18 +26,6 @@ public class Main {
         ImClient im = c.telegramEnabled() ? new TelegramImClient(c.telegramBotToken) : null;
         // 初始化 LLM 客户端
         LlmClient llm = new LlmClient(c.model, c.apiKey, c.baseUrl, c.temperature);
-
-        // web模式：命令行参数里带了 --web，程序就进入 Web 模式
-        if (hasArg(args, "--web")) {
-            // 去找 --web 后面的参数作为端口,默认 8080
-            int port = webPort(args);
-            // config,llm,当前工作目录的绝对路径
-            WebServer web = new WebServer(c, llm, Path.of("").toAbsolutePath());
-            // 启动 WebServer
-            web.start(port);
-            new CountDownLatch(1).await();
-            return;
-        }
 
         // 传入最大窗口，便于上下文压缩的配置策略
         Agent agent = new Agent(llm, c.maxContextTokens, im);
@@ -89,18 +73,4 @@ public class Main {
         }
     }
 
-    private static boolean hasArg(String[] args, String value) {
-        for (String arg : args) {
-            if (value.equals(arg)) return true;
-        }
-        return false;
-    }
-
-    // 去找 --web 后面的参数作为端口
-    private static int webPort(String[] args) {
-        for (int i = 0; i < args.length - 1; i++) {
-            if ("--web".equals(args[i])) return Integer.parseInt(args[i + 1]);
-        }
-        return 8080;
-    }
 }
