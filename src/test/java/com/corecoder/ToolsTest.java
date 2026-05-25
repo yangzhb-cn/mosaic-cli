@@ -1,5 +1,7 @@
 package com.corecoder;
 
+import com.corecoder.im.ImClient;
+import com.corecoder.im.ImMessage;
 import com.corecoder.tools.Tools;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -8,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -133,5 +136,51 @@ class ToolsTest {
     @Test
     void agentToolNeedsParentAgent() {
         assertTrue(Tools.get(Tools.all(null), "Task").execute(Map.of("task", "x")).contains("未初始化"));
+    }
+
+    @Test
+    void imAgentRegistersSendMessageTool() {
+        FakeImClient im = new FakeImClient();
+        Agent agent = new Agent(new LlmClient("m", "k", "http://localhost", 0), 1000, im);
+        assertNotNull(Tools.get(agent.tools, "send_message"));
+        assertEquals(12, agent.tools.size());
+    }
+
+    @Test
+    void sendMessageToolUsesCurrentImChat() {
+        FakeImClient im = new FakeImClient();
+        Agent agent = new Agent(new LlmClient("m", "k", "http://localhost", 0), 1000, im);
+        Tools.Tool send = Tools.get(agent.tools, "send_message");
+        assertNotNull(send);
+
+        assertTrue(send.execute(Map.of("text", "hi")).contains("当前没有可用的 IM 会话"));
+
+        agent.setCurrentImChatId("chat-1");
+        assertTrue(send.execute(Map.of("text", "hi")).contains("消息已发送"));
+        assertEquals("chat-1", im.chatId);
+        assertEquals("hi", im.text);
+    }
+
+    static class FakeImClient implements ImClient {
+        String chatId;
+        String text;
+
+        @Override
+        public void start(Consumer<ImMessage> handler) {
+        }
+
+        @Override
+        public void stop() {
+        }
+
+        @Override
+        public void send(String chatId, String text) {
+            this.chatId = chatId;
+            this.text = text;
+        }
+
+        @Override
+        public void typing(String chatId) {
+        }
     }
 }

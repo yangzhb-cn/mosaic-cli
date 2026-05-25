@@ -35,7 +35,7 @@ public final class Tools {
     }
 
     public static List<Tool> all(Agent parent) {
-        return List.of(
+        List<Tool> tools = new ArrayList<>(List.of(
                 new BashTool(),
                 new GlobTool(),
                 new GrepTool(),
@@ -47,7 +47,9 @@ public final class Tools {
                 new TodoReadTool(),
                 new TodoWriteTool(),
                 new AgentTool(parent)
-        );
+        ));
+        if (parent != null && parent.imClient() != null) tools.add(new SendMessageTool(parent));
+        return List.copyOf(tools);
     }
 
     public static Tool get(List<Tool> tools, String name) {

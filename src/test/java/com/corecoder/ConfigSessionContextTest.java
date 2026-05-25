@@ -31,12 +31,21 @@ class ConfigSessionContextTest {
         Files.writeString(temp.resolve(".env"), """
                 DEEPSEEK_API_KEY=file-key
                 DEEPSEEK_BASE_URL=https://file.example/v1
+                TELEGRAM_BOT_TOKEN=file-token
+                OWNER_ID=file-owner
                 """);
 
-        Config c = Config.from(Map.of("DEEPSEEK_API_KEY", "env-key"), temp);
+        Config c = Config.from(Map.of(
+                "DEEPSEEK_API_KEY", "env-key",
+                "OWNER_ID", "env-owner"
+        ), temp);
         assertEquals("deepseek-v4-flash", c.model);
         assertEquals("env-key", c.apiKey);
         assertEquals("https://file.example/v1", c.baseUrl);
+        assertEquals("telegram", c.im);
+        assertEquals("file-token", c.telegramBotToken);
+        assertEquals("env-owner", c.telegramOwnerId);
+        assertTrue(c.telegramEnabled());
     }
 
     @Test

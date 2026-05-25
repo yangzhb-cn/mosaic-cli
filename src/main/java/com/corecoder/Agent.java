@@ -1,5 +1,6 @@
 package com.corecoder;
 
+import com.corecoder.im.ImClient;
 import com.corecoder.tools.Tools;
 
 import java.util.ArrayList;
@@ -19,10 +20,17 @@ public class Agent {
     public final List<Map<String, Object>> messages = new ArrayList<>();
     private final int maxRounds;
     private final String system;
+    private final ImClient im;
+    private volatile String currentImChatId;
 
     // 通用 Agent
     public Agent(LlmClient llm, int maxContextTokens) {
+        this(llm, maxContextTokens, null);
+    }
+
+    public Agent(LlmClient llm, int maxContextTokens, ImClient im) {
         this.llm = llm;
+        this.im = im;
         this.context = new ContextManager(maxContextTokens);
         // 最多允许模型-工具循环多少轮
         this.maxRounds = 50;
@@ -33,6 +41,7 @@ public class Agent {
     //  子 Agen 构造函数
     Agent(LlmClient llm, List<Tools.Tool> tools, int maxContextTokens, int maxRounds) {
         this.llm = llm;
+        this.im = null;
         this.tools = tools;
         this.context = new ContextManager(maxContextTokens);
         this.maxRounds = maxRounds;
@@ -40,7 +49,7 @@ public class Agent {
     }
 
     // Agent 的主入口
-    public String chat(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool) throws Exception {
+    public synchronized String chat(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool) throws Exception {
         // 1. 把用户消息加入历史
         messages.add(Map.of("role", "user", "content", userInput));
         // 2. 检查当前消息是否太长
@@ -91,6 +100,23 @@ public class Agent {
         return "(已达到最大工具调用轮数)";
     }
 
+    public synchronized String chatFromIm(String chatId, String userInput) throws Exception {
+        this.currentImChatId = chatId;
+        return chat(userInput, null, null);
+    }
+
+    public ImClient imClient() {
+        return im;
+    }
+
+    public String currentImChatId() {
+        return currentImChatId;
+    }
+
+    public void setCurrentImChatId(String chatId) {
+        this.currentImChatId = chatId;
+    }
+
     // 把一个工具调用按 index 提交到线程池；已提交过则直接复用原 Future。
     private void submit(Map<Integer, Future<String>> futures, java.util.concurrent.ExecutorService pool, int idx, LlmClient.ToolCall tc, BiConsumer<String, Map<String, Object>> onTool) {
         // computeIfAbsent 保证同一个 index 不会因为流式回调和兜底逻辑被执行两次。
@@ -111,7 +137,7 @@ public class Agent {
     }
 
     // 清空对话历史
-    public void reset() {
+    public synchronized void reset() {
         messages.clear();
     }
 
