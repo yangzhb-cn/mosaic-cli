@@ -52,6 +52,19 @@ class AgentTest {
         assertEquals(List.of("done"), tokens);
     }
 
+    @Test
+    void rejectsUnknownToolArgumentsBeforeExecute() throws Exception {
+        InvalidArgsFakeLlm llm = new InvalidArgsFakeLlm();
+        StrictTool tool = new StrictTool();
+        Agent agent = new Agent(llm, List.of(tool), 128000, 3);
+
+        String response = agent.chat("run strict tool", null, null);
+
+        assertEquals("fixed", response);
+        assertEquals(0, tool.executions);
+        assertTrue(String.valueOf(agent.messages.get(2).get("content")).contains("未知参数 Strict.extra"));
+    }
+
     private static final class TextFakeLlm extends LlmClient {
         private TextFakeLlm() {
             super("test-model", "key", "http://localhost", 0);
@@ -102,6 +115,25 @@ class AgentTest {
         }
     }
 
+    private static final class InvalidArgsFakeLlm extends LlmClient {
+        private int calls;
+
+        private InvalidArgsFakeLlm() {
+            super("test-model", "key", "http://localhost", 0);
+        }
+
+        @Override
+        public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
+            calls++;
+            if (calls == 1) {
+                ToolCall call = new ToolCall("call_strict", "Strict", Map.of("input", "ok", "extra", "ignored"));
+                if (onToolReady != null) onToolReady.accept(0, call);
+                return new Response("", "", List.of(call), 0, 0);
+            }
+            return new Response("fixed", "", List.of(), 0, 0);
+        }
+    }
+
     private static final class TestTool implements Tools.Tool {
         private final String name;
         private final String result;
@@ -142,6 +174,36 @@ class AgentTest {
             }
             // 返回可断言的工具结果。
             return result;
+        }
+    }
+
+    private static final class StrictTool implements Tools.Tool {
+        private int executions;
+
+        @Override
+        public String name() {
+            return "Strict";
+        }
+
+        @Override
+        public String description() {
+            return "Strict test tool";
+        }
+
+        @Override
+        public Map<String, Object> parameters() {
+            return Map.of(
+                    "type", "object",
+                    "additionalProperties", false,
+                    "properties", Map.of("input", Map.of("type", "string")),
+                    "required", List.of("input")
+            );
+        }
+
+        @Override
+        public String execute(Map<String, Object> args) {
+            executions++;
+            return "executed";
         }
     }
 }

@@ -54,7 +54,7 @@ public final class CliCommands {
         while (true) {
             String line;
             try {
-                line = reader.readLine("👤 你 > ").strip();
+                line = reader.readLine("\n👤 你 > ").strip();
             } catch (UserInterruptException ignored) {
                 continue;
             } catch (EndOfFileException ignored) {
@@ -136,31 +136,40 @@ public final class CliCommands {
 
     // 处理普通聊天输入。
     private static void chat(Agent agent, String line) throws Exception {
-        System.out.println("🤔 思考中...");
+        System.out.println("\n🤔 思考中...");
         // 累积模型流式输出的内容
         StringBuilder streamed = new StringBuilder();
 
         // agent.chat(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool)
         // 真正发起一次聊天（涉及两次回调）
         String response = agent.chat(line, tok -> {
-            // 如果这是第一个 token，先打印一次 🤖 Agent:
+            String out = streamed.isEmpty() ? stripLeadingBlank(tok) : tok;
+            if (out.isEmpty()) {
+                return;
+            }
+            // 如果这是第一个有效 token，先打印一次 🤖 Agent:
             if (streamed.isEmpty()) {
                 System.out.print("\n🤖 Agent: ");
             }
-            // 把当前 token 加到缓冲区里
-            streamed.append(tok);
+            // 把当前有效 token 加到缓冲区里
+            streamed.append(out);
             // 同时直接打印到终端，这就是“边生成边显示”的流式效果
-            System.out.print(tok);
+            System.out.print(out);
 
             // agent调用了工具就回调，打印工具名和参数摘要
         }, (name, args) -> System.out.println("🔧 " + name + "(" + brief(args) + ")"));
 
         // 如果已经流式了，就打印空行，否则response兜底
-        System.out.println(streamed.isEmpty() ? "🤖 Agent: " + response : "");
+        System.out.println(streamed.isEmpty() ? "🤖 Agent: " + stripLeadingBlank(response) : "");
     }
 
     private static boolean isExit(String line) {
         return line.equals("/exit");
+    }
+
+    // 丢弃模型回复开头的空格、制表符和空行，避免终端前缀后先换行。
+    private static String stripLeadingBlank(String text) {
+        return text == null ? "" : text.replaceFirst("^[\\s\\u3000]+", "");
     }
 
     // 用来把工具参数压缩成一个简短字符串，方便打印
