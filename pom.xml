@@ -57,7 +57,7 @@
               <createDependencyReducedPom>false</createDependencyReducedPom>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>com.corecoder.Main</mainClass>
+                  <mainClass>com.coder.Main</mainClass>
                 </transformer>
               </transformers>
             </configuration>
