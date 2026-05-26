@@ -11,9 +11,9 @@ import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 
 import com.yang.Agent;
-import com.yang.ContextManager;
+import com.yang.context.ContextManager;
 import com.yang.LlmClient;
-import com.yang.SessionStore;
+import com.yang.session.SessionStore;
 import com.yang.mcp.McpManager;
 import com.yang.tool.Tools;
 

@@ -2,7 +2,7 @@ package com.yang.cli;
 
 import com.yang.Agent;
 import com.yang.LlmClient;
-import com.yang.SessionStore;
+import com.yang.session.SessionStore;
 import com.yang.audit.ToolAudit;
 import com.yang.mcp.McpManager;
 import org.junit.jupiter.api.Test;

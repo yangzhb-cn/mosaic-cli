@@ -1,4 +1,4 @@
-package com.yang;
+package com.yang.session;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
