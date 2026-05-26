@@ -67,6 +67,7 @@ class CliCommandsTest {
     @Test
     void auditCommandPrintsTable() throws Exception {
         Agent agent = new Agent(new FakeLlm(""), 1000, null, List.of(), List.of(), new ToolAudit(temp));
+        agent.audit().record("mcp_filesystem_directory_tree", true, 32_800_000);
         agent.audit().record("Read", true, 1_000_000);
         agent.audit().record("Read", false, 3_000_000);
 
@@ -85,6 +86,8 @@ class CliCommandsTest {
         assertTrue(text.contains("Success_Rate"));
         assertTrue(text.contains("Read"));
         assertTrue(text.contains("50.00%"));
+        List<String> lines = text.strip().lines().toList();
+        assertEquals(lines.get(1).indexOf("1"), lines.get(2).indexOf("2"));
     }
 
     @Test
@@ -131,6 +134,77 @@ class CliCommandsTest {
         assertEquals("conversation_keep", agent.conversationId());
         assertTrue(agent.audit().isEmpty());
         assertTrue(out.toString(StandardCharsets.UTF_8).contains("会话已加载"));
+    }
+
+    @Test
+    void sessionListPrintsSavedSessions() throws Exception {
+        SessionStore sessions = new SessionStore(temp.resolve("sessions"));
+        sessions.save(List.of(Map.of("role", "user", "content", "hello session")), "test-model", "session-one", "conversation_keep");
+
+        PrintStream original = System.out;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
+            assertTrue(CliCommands.handle("/session list", null, new FakeLlm(""), sessions));
+        } finally {
+            System.setOut(original);
+        }
+
+        String text = out.toString(StandardCharsets.UTF_8);
+        assertTrue(text.contains("session-one"));
+        assertTrue(text.contains("test-model"));
+        assertTrue(text.contains("hello session"));
+    }
+
+    @Test
+    void sessionCommandPrintsCurrentUserMessagesWithoutSystemReminder() throws Exception {
+        Agent agent = new Agent(new FakeLlm(""), 1000, null, List.of(), List.of(), new ToolAudit(temp));
+        agent.messages.add(Map.of("role", "user", "content", "<system-reminder>\nsecret\n</system-reminder>\n\nhello"));
+        agent.messages.add(Map.of("role", "assistant", "content", "hidden"));
+        agent.messages.add(Map.of("role", "user", "content", "second"));
+
+        PrintStream original = System.out;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
+            assertTrue(CliCommands.handle("/session", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+        } finally {
+            System.setOut(original);
+        }
+
+        String text = out.toString(StandardCharsets.UTF_8);
+        assertTrue(text.contains("1. hello"));
+        assertTrue(text.contains("2. second"));
+        assertFalse(text.contains("system-reminder"));
+        assertFalse(text.contains("secret"));
+        assertFalse(text.contains("hidden"));
+    }
+
+    @Test
+    void sessionIdPrintsSavedUserMessagesWithoutLoadingSession() throws Exception {
+        SessionStore sessions = new SessionStore(temp.resolve("sessions"));
+        sessions.save(List.of(Map.of("role", "user", "content", "saved user")), "test-model", "saved-one", "conversation_saved");
+        Agent agent = new Agent(new FakeLlm(""), 1000, null, List.of(), List.of(), new ToolAudit(temp));
+        agent.messages.add(Map.of("role", "user", "content", "current user"));
+
+        PrintStream original = System.out;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
+            assertTrue(CliCommands.handle("/session saved-one", agent, new FakeLlm(""), sessions));
+        } finally {
+            System.setOut(original);
+        }
+
+        String text = out.toString(StandardCharsets.UTF_8);
+        assertTrue(text.contains("1. saved user"));
+        assertFalse(text.contains("current user"));
+        assertEquals(List.of(Map.of("role", "user", "content", "current user")), agent.messages);
+    }
+
+    @Test
+    void sessionsCommandIsNoLongerHandled() throws Exception {
+        assertFalse(CliCommands.handle("/sessions", null, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
     }
 
     private static final class FakeLlm extends LlmClient {

@@ -37,7 +37,8 @@ public final class CliCommands {
             command("/audit save", "保存当前对话工具调用统计"),
             command("/save", "保存当前会话"),
             command("/load", "加载保存的会话"),
-            command("/sessions", "列出保存的会话"),
+            command("/session", "查看当前会话用户消息"),
+            command("/session list", "列出保存的会话"),
             command("/exit", "退出"));
 
     private CliCommands() {
@@ -180,12 +181,42 @@ public final class CliCommands {
             }
             return true;
         }
-        if (line.equals("/sessions")) {
-            for (SessionStore.SessionInfo s : sessions.list())
-                System.out.println("  🗂️ " + s.id() + " (" + s.model() + ", " + s.savedAt() + ") " + s.preview());
+        if (line.equals("/session list")) {
+            printSessionList(sessions);
+            return true;
+        }
+        if (line.equals("/session")) {
+            printUserMessages(agent.messages);
+            return true;
+        }
+        if (line.startsWith("/session ")) {
+            String id = line.substring("/session ".length()).strip();
+            SessionStore.Session session = sessions.load(id);
+            if (session == null) {
+                System.out.println("📭 未找到会话: " + id);
+                return true;
+            }
+            printUserMessages(session.messages());
             return true;
         }
         return false;
+    }
+
+    private static void printSessionList(SessionStore sessions) throws Exception {
+        for (SessionStore.SessionInfo s : sessions.list())
+            System.out.println("  🗂️ " + s.id() + " (" + s.model() + ", " + s.savedAt() + ") " + s.preview());
+    }
+
+    private static void printUserMessages(List<Map<String, Object>> messages) {
+        int i = 1;
+        for (Map<String, Object> message : messages) {
+            if (!"user".equals(message.get("role"))) continue;
+            String content = ContextManager.stripSystemReminder(String.valueOf(message.getOrDefault("content", ""))).strip();
+            if (content.isBlank()) continue;
+            System.out.println(i + ". " + content);
+            i++;
+        }
+        if (i == 1) System.out.println("📭 当前会话没有用户消息。");
     }
 
     // 处理普通聊天输入。

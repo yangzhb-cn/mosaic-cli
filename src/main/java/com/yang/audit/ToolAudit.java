@@ -69,16 +69,22 @@ public final class ToolAudit {
     public synchronized String table() {
         if (stats.isEmpty()) return "📊 当前对话还没有工具调用。";
 
+        List<Map<String, Object>> rows = recordsLocked();
+        int toolWidth = width("Tool", rows, "Tool");
+        int callsWidth = width("Calls", rows, "Calls");
+        int successWidth = width("Success", rows, "Success");
+        int rateWidth = width("Success_Rate", rows, "Success_Rate");
+        int avgWidth = width("Avg_ms", rows, "Avg_ms");
+        String format = "%-" + toolWidth + "s  %" + callsWidth + "s  %" + successWidth + "s  %" + rateWidth + "s  %" + avgWidth + "s%n";
         StringBuilder out = new StringBuilder();
-        out.append(String.format(Locale.ROOT, "%-20s %7s %8s %13s %8s%n",
-                "Tool", "Calls", "Success", "Success_Rate", "Avg_ms"));
-        for (Map<String, Object> row : recordsLocked()) {
-            out.append(String.format(Locale.ROOT, "%-20s %7d %8d %13s %8.1f%n",
+        out.append(String.format(Locale.ROOT, format, "Tool", "Calls", "Success", "Success_Rate", "Avg_ms"));
+        for (Map<String, Object> row : rows) {
+            out.append(String.format(Locale.ROOT, format,
                     row.get("Tool"),
                     row.get("Calls"),
                     row.get("Success"),
                     row.get("Success_Rate"),
-                    row.get("Avg_ms")));
+                    String.format(Locale.ROOT, "%.1f", row.get("Avg_ms"))));
         }
         return out.toString().stripTrailing();
     }
@@ -127,6 +133,14 @@ public final class ToolAudit {
 
     private static double round1(double value) {
         return Math.round(value * 10d) / 10d;
+    }
+
+    private static int width(String header, List<Map<String, Object>> rows, String key) {
+        int width = header.length();
+        for (Map<String, Object> row : rows) {
+            width = Math.max(width, String.valueOf(row.get(key)).length());
+        }
+        return width;
     }
 
     private static final class Stat {

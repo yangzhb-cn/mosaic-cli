@@ -131,9 +131,13 @@ mosaiccoder() {
 ```text
 /save
 /load <session_id>
+/session
+/session <session_id>
+/session list
 ```
 
 `/save` 会保存 `messages` 和 `conversation_id`；`/load <session_id>` 会恢复这两项，但不会恢复历史 audit 统计。
+`/session` 展示当前会话的用户消息，`/session <session_id>` 只读查看指定保存会话的用户消息，`/session list` 展开保存的会话列表。
 
 ## 项目结构
 
