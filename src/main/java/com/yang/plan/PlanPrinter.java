@@ -5,6 +5,8 @@ import java.util.List;
 
 /** 将执行计划和任务状态格式化为 CLI 可读表格。 */
 public final class PlanPrinter {
+    private static final int DESCRIPTION_WIDTH = 64;
+
     private PlanPrinter() {
     }
 
@@ -18,7 +20,7 @@ public final class PlanPrinter {
                     task.type().name(),
                     task.status().name(),
                     task.dependencies().isEmpty() ? "-" : String.join(",", task.dependencies()),
-                    task.description()
+                    description(task.description())
             ));
         }
         int id = width(rows, 0);
@@ -46,13 +48,57 @@ public final class PlanPrinter {
                 case 3 -> row.dependsOn;
                 default -> row.description;
             };
-            max = Math.max(max, value.length());
+            max = Math.max(max, displayWidth(value));
         }
         return max;
     }
 
     private static String pad(String value, int width) {
-        return value + " ".repeat(Math.max(0, width - value.length()));
+        return value + " ".repeat(Math.max(0, width - displayWidth(value)));
+    }
+
+    private static String description(String text) {
+        return truncate(oneLine(text), DESCRIPTION_WIDTH);
+    }
+
+    private static String oneLine(String text) {
+        return text == null ? "" : text.replaceAll("\\s+", " ").strip();
+    }
+
+    private static String truncate(String text, int maxWidth) {
+        if (displayWidth(text) <= maxWidth) return text;
+        StringBuilder out = new StringBuilder();
+        int width = 0;
+        for (int i = 0; i < text.length();) {
+            int cp = text.codePointAt(i);
+            int w = charWidth(cp);
+            if (width + w > maxWidth - 3) break;
+            out.appendCodePoint(cp);
+            width += w;
+            i += Character.charCount(cp);
+        }
+        return out + "...";
+    }
+
+    private static int displayWidth(String text) {
+        int width = 0;
+        for (int i = 0; i < text.length();) {
+            int cp = text.codePointAt(i);
+            width += charWidth(cp);
+            i += Character.charCount(cp);
+        }
+        return width;
+    }
+
+    private static int charWidth(int cp) {
+        Character.UnicodeScript script = Character.UnicodeScript.of(cp);
+        if (script == Character.UnicodeScript.HAN
+                || script == Character.UnicodeScript.HIRAGANA
+                || script == Character.UnicodeScript.KATAKANA
+                || script == Character.UnicodeScript.HANGUL) {
+            return 2;
+        }
+        return cp > 0xFFFF ? 2 : 1;
     }
 
     /** 表格渲染用的行数据。 */

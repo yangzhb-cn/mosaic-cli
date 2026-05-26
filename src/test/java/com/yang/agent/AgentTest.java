@@ -3,6 +3,10 @@ package com.yang.agent;
 import com.yang.audit.ToolAudit;
 import com.yang.llm.LlmClient;
 import com.yang.memory.MemoryManager;
+import com.yang.plan.ExecutionPlan;
+import com.yang.plan.PlanRunner;
+import com.yang.plan.PlanTask;
+import com.yang.plan.TaskType;
 import com.yang.session.SessionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -137,6 +141,19 @@ class AgentTest {
 
         Path archive = memory.conversationsDir().resolve(java.time.LocalDate.now() + ".md");
         assertFalse(Files.exists(archive));
+    }
+
+    @Test
+    void planRunnerReportsSubAgentInternalToolCalls() throws Exception {
+        Agent agent = new Agent(new SubAgentToolCallingLlm(), List.of(new StrictTool()), 128000, 3);
+        ExecutionPlan plan = new ExecutionPlan("task", List.of(
+                new PlanTask("T1", "inspect", TaskType.FILE_READ, List.of())
+        ));
+        List<String> progress = new java.util.ArrayList<>();
+
+        new PlanRunner(agent).run(plan, progress::add);
+
+        assertTrue(progress.stream().anyMatch(s -> s.contains("SubAgent(T1).Strict") && s.contains("input=ok")));
     }
 
     @Test
@@ -346,6 +363,25 @@ class AgentTest {
                 return new Response("", "", List.of(call), 0, 0, 0);
             }
             return new Response("fixed", "", List.of(), 0, 0, 0);
+        }
+    }
+
+    private static final class SubAgentToolCallingLlm extends LlmClient {
+        private int calls;
+
+        private SubAgentToolCallingLlm() {
+            super("test-model", "key", "http://localhost", 0);
+        }
+
+        @Override
+        public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
+            calls++;
+            if (calls == 1) {
+                ToolCall call = new ToolCall("call_strict", "Strict", Map.of("input", "ok"));
+                if (onToolReady != null) onToolReady.accept(0, call);
+                return new Response("", "", List.of(call), 0, 0, 0);
+            }
+            return new Response("done", "", List.of(), 0, 0, 0);
         }
     }
 

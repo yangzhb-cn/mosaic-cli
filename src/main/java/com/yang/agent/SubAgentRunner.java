@@ -8,6 +8,8 @@ import com.yang.skill.Skill;
 import com.yang.tool.Tools;
 
 import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
 
 /** 创建无状态子 Agent，并避免子 Agent 再次暴露 Task 工具或写入顶层对话归档。 */
 final class SubAgentRunner {
@@ -28,10 +30,14 @@ final class SubAgentRunner {
     }
 
     String run(String task, int maxRounds) throws Exception {
+        return run(task, maxRounds, null);
+    }
+
+    String run(String task, int maxRounds, BiConsumer<String, Map<String, Object>> onTool) throws Exception {
         List<Tools.Tool> subTools = tools.stream()
                 .filter(t -> !"Task".equals(t.name()))
                 .toList();
         Agent sub = new Agent(llm, subTools, maxContextTokens, maxRounds, skills, audit, memory, SessionManager.disabled(), false);
-        return sub.chat(task, null, null);
+        return sub.chat(task, null, onTool);
     }
 }

@@ -53,7 +53,7 @@ public class Main {
         System.out.println("🔌 " + mcp.summary());
         System.out.println("🧩 Skills: " + skills.size() + " loaded");
         System.out.println("🧠 Memory: workspace/Mosaic.md");
-        System.out.println("🗂️ Session: " + activeSession.id());
+        System.out.println("🗂️  Session: " + activeSession.id());
 
         // 传入最大窗口，便于上下文压缩的配置策略
         Agent agent = new Agent(llm, c.maxContextTokens, im, mcp.tools(), skills, null, memory, sessions);

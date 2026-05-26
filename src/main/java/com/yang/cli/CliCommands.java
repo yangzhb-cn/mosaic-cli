@@ -102,8 +102,8 @@ public final class CliCommands {
             // agent调用了工具就回调，打印工具名和参数摘要
         }, (name, args) -> System.out.println("\n🔧 " + name + "(" + brief(args) + ")"));
 
-        // 如果已经流式了，就打印空行，否则response兜底
-        System.out.println(streamed.isEmpty() ? "🤖 Agent: " + stripLeadingBlank(response) : "");
+        // 如果已经流式了，就打印空行，否则 response 兜底。多行内容单独换行，避免表格被前缀挤歪。
+        System.out.println(streamed.isEmpty() ? agentPrefix(response) : "");
         printUsage(agent.lastTokenUsage(), System.nanoTime() - started);
     }
 
@@ -129,6 +129,11 @@ public final class CliCommands {
     // 丢弃模型回复开头的空格、制表符和空行，避免终端前缀后先换行。
     private static String stripLeadingBlank(String text) {
         return text == null ? "" : text.replaceFirst("^[\\s\\u3000]+", "");
+    }
+
+    private static String agentPrefix(String response) {
+        String text = stripLeadingBlank(response);
+        return text.contains("\n") ? "🤖 Agent:\n" + text : "🤖 Agent: " + text;
     }
 
     // 用来把工具参数压缩成一个简短字符串，方便打印

@@ -174,10 +174,15 @@ workspace/conversations/YYYY-MM-DD.md
 
 ## Plan-and-Execute
 
-`/plan` 会让 CLI 等待下一条普通输入，并把这条输入交给独立 `PlannerAgent`。Planner 只使用只读/搜索工具：
+`/plan` 会让 CLI 等待下一条普通输入，并把这条输入交给独立 `PlannerAgent`。Planner 只使用只读/搜索工具；如果规划过程中调用工具，CLI 会像普通工具调用一样展示：
 
 ```text
 Read, LS, Glob, Grep, WebFetch, WebSearch
+```
+
+```text
+🔧 WebSearch(query=...)
+🔧 Read(file_path=...)
 ```
 
 Planner 最终输出严格 JSON DAG。解析成功后 CLI 打印计划表格，并提示：

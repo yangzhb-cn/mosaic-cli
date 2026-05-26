@@ -87,7 +87,7 @@ public class Agent {
         this.toolExecutor = new ToolExecutor(tools, this.session.audit());
         this.promptBuilder = new PromptMessageBuilder(tools, skillList, this.session.memory());
         this.subAgents = new SubAgentRunner(llm, tools, context.maxTokens, skillList, this.session.audit(), this.session.memory());
-        this.planController = new CliPlanController(new PlannerAgent(llm, this.session.audit()), new PlanRunner(this), messages, this::messagesChanged);
+        this.planController = new CliPlanController(new PlannerAgent(llm, this.session.audit()), new PlanRunner(this), messages, this::messagesChanged, llm);
     }
 
     //  子 Agen 构造函数
@@ -122,7 +122,7 @@ public class Agent {
         this.toolExecutor = new ToolExecutor(tools, this.session.audit());
         this.promptBuilder = new PromptMessageBuilder(tools, skillList, this.session.memory());
         this.subAgents = new SubAgentRunner(llm, tools, context.maxTokens, skillList, this.session.audit(), this.session.memory());
-        this.planController = new CliPlanController(new PlannerAgent(llm, this.session.audit()), new PlanRunner(this), messages, this::messagesChanged);
+        this.planController = new CliPlanController(new PlannerAgent(llm, this.session.audit()), new PlanRunner(this), messages, this::messagesChanged, llm);
     }
 
     public synchronized String chatCli(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool) throws Exception {
@@ -303,7 +303,11 @@ public class Agent {
 
     // 运行一个子 Agent 来处理某个任务
     public String runSubAgent(String task, int maxRounds) throws Exception {
-        return subAgents.run(task, maxRounds);
+        return runSubAgent(task, maxRounds, null);
+    }
+
+    public String runSubAgent(String task, int maxRounds, BiConsumer<String, Map<String, Object>> onTool) throws Exception {
+        return subAgents.run(task, maxRounds, onTool);
     }
 
     private void messagesChanged() {

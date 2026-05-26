@@ -1,6 +1,7 @@
 package com.yang.plan;
 
 import com.yang.agent.Agent;
+import com.yang.prompt.Prompt;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -10,16 +11,18 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /** 按 DAG 依赖并行执行计划任务，并处理重试、写任务串行和失败停止。 */
 public final class PlanRunner {
     private static final int MAX_ATTEMPTS = 3;
+    private static final int SUB_AGENT_MAX_ROUNDS = 8;
 
     /** 执行单个 DAG task 的回调，生产环境由子 Agent 实现，测试可替换。 */
     @FunctionalInterface
     public interface TaskExecutor {
-        String execute(PlanTask task, ExecutionPlan plan) throws Exception;
+        String execute(PlanTask task, ExecutionPlan plan, Consumer<String> onProgress) throws Exception;
     }
 
     private final TaskExecutor executor;
@@ -27,7 +30,7 @@ public final class PlanRunner {
     private final Object writeLock = new Object();
 
     public PlanRunner(Agent agent) {
-        this((task, plan) -> agent.runSubAgent(prompt(task, plan), 20), 4);
+        this((task, plan, onProgress) -> agent.runSubAgent(prompt(task, plan), SUB_AGENT_MAX_ROUNDS, subAgentToolReporter(task, onProgress)), 4);
     }
 
     public PlanRunner(TaskExecutor executor) {
@@ -88,7 +91,7 @@ public final class PlanRunner {
             if (i > 0) progress(onProgress, "🔁 " + task.id() + " 重试 " + (i + 1) + "/" + MAX_ATTEMPTS);
             task.incrementAttempts();
             try {
-                String result = execute(task, plan);
+                String result = execute(task, plan, onProgress);
                 if (result == null || !result.startsWith("错误:")) return new TaskResult(true, result == null ? "" : result);
                 last = result;
             } catch (Exception e) {
@@ -98,10 +101,10 @@ public final class PlanRunner {
         return new TaskResult(false, last);
     }
 
-    private String execute(PlanTask task, ExecutionPlan plan) throws Exception {
-        if (!task.writeLocked()) return executor.execute(task, plan);
+    private String execute(PlanTask task, ExecutionPlan plan, Consumer<String> onProgress) throws Exception {
+        if (!task.writeLocked()) return executor.execute(task, plan, onProgress);
         synchronized (writeLock) {
-            return executor.execute(task, plan);
+            return executor.execute(task, plan, onProgress);
         }
     }
 
@@ -138,22 +141,40 @@ public final class PlanRunner {
         return s.length() > 100 ? s.substring(0, 100) + "..." : s;
     }
 
+    private static BiConsumer<String, Map<String, Object>> subAgentToolReporter(PlanTask task, Consumer<String> onProgress) {
+        return (name, args) -> progress(onProgress, "🔧 SubAgent(" + task.id() + ")." + name + "(" + briefArgs(args) + ")");
+    }
+
+    private static String briefArgs(Map<String, Object> args) {
+        if (args == null || args.isEmpty()) return "";
+        String s = args.entrySet().stream()
+                .map(e -> e.getKey() + "=" + e.getValue())
+                .reduce((a, b) -> a + ", " + b)
+                .orElse("");
+        s = s.replaceAll("\\s+", " ").strip();
+        return s.length() > 100 ? s.substring(0, 100) + "..." : s;
+    }
+
     private static String prompt(PlanTask task, ExecutionPlan plan) {
+        return Prompt.subAgentPrompt(
+                plan.task(),
+                task.id(),
+                task.type().name(),
+                task.description(),
+                dependencies(task, plan)
+        );
+    }
+
+    private static String dependencies(PlanTask task, ExecutionPlan plan) {
+        if (task.dependencies().isEmpty()) return "无";
         StringBuilder out = new StringBuilder();
-        out.append("你是执行子 Agent。只完成当前 DAG task，不要扩展无关范围。\n");
-        out.append("原始目标：").append(plan.task()).append("\n");
-        out.append("当前任务：").append(task.id()).append(" [").append(task.type()).append("] ").append(task.description()).append("\n");
-        if (!task.dependencies().isEmpty()) {
-            out.append("依赖结果：\n");
-            for (String dep : task.dependencies()) {
-                PlanTask dependency = plan.task(dep);
-                out.append("- ").append(dep).append(": ")
-                        .append(dependency == null ? "" : dependency.result())
-                        .append('\n');
-            }
+        for (String dep : task.dependencies()) {
+            PlanTask dependency = plan.task(dep);
+            out.append("- ").append(dep).append(": ")
+                    .append(dependency == null ? "" : dependency.result())
+                    .append('\n');
         }
-        out.append("完成后用简短中文总结结果。");
-        return out.toString();
+        return out.toString().stripTrailing();
     }
 
     /** 单个 task 执行后的成功状态和输出。 */

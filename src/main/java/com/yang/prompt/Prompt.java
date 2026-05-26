@@ -18,6 +18,7 @@ public class Prompt {
     private static final String SYSTEM_PROMPT = load("system-prompt.md");
     private static final String COMPRESSION_PROMPT = load("conversation-summarization.md");
     private static final String PLANNER_PROMPT = load("planner-prompt.md");
+    private static final String SUBAGENT_PROMPT = load("subagent-prompt.md");
     private static final String RUNTIME_REMINDER = load("runtime-reminder.md");
     private static final String MCP_TOOLS_REMINDER = load("mcp-tools-reminder.md");
     private static final String SKILLS_REMINDER = load("skills-reminder.md");
@@ -56,6 +57,15 @@ public class Prompt {
 
     public static String plannerPrompt() {
         return PLANNER_PROMPT;
+    }
+
+    public static String subAgentPrompt(String goal, String taskId, String taskType, String description, String dependencies) {
+        return SUBAGENT_PROMPT
+                .replace("{{goal}}", blank(goal))
+                .replace("{{task_id}}", blank(taskId))
+                .replace("{{task_type}}", blank(taskType))
+                .replace("{{description}}", blank(description))
+                .replace("{{dependencies}}", blank(dependencies));
     }
 
     public static String compressionPrompt() {
@@ -111,6 +121,10 @@ public class Prompt {
 
     private static boolean isMcpTool(Tools.Tool tool) {
         return tool.name().startsWith("mcp_");
+    }
+
+    private static String blank(String text) {
+        return text == null ? "" : text;
     }
 
     private static String load(String name) {
