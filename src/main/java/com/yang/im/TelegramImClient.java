@@ -49,7 +49,7 @@ public class TelegramImClient implements ImClient {
                     if (update.message() != null) handler.accept(update.message());
                 }
             } catch (Exception e) {
-                System.err.println("Telegram 轮询失败: " + e.getMessage());
+                System.err.println("⚠️ Telegram 轮询失败: " + e.getMessage());
                 sleep();
             }
         }

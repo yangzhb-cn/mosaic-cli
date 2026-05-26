@@ -52,8 +52,26 @@ public final class ToolAudit {
     }
 
     public synchronized void restoreConversation(String id) {
+        restoreConversation(id, List.of());
+    }
+
+    public synchronized void restoreConversation(String id, List<Map<String, Object>> records) {
         stats.clear();
         conversationId = normalize(id);
+        restoreRecords(records);
+    }
+
+    private void restoreRecords(List<Map<String, Object>> records) {
+        if (records == null) return;
+        for (Map<String, Object> row : records) {
+            String tool = String.valueOf(row.getOrDefault("Tool", "unknown"));
+            int calls = Math.max(0, intValue(row.get("Calls")));
+            if (calls == 0) continue;
+            Stat stat = stats.computeIfAbsent(tool.isBlank() ? "unknown" : tool, ignored -> new Stat());
+            stat.calls = calls;
+            stat.success = Math.min(calls, Math.max(0, intValue(row.get("Success"))));
+            stat.totalNanos = Math.max(0, Math.round(doubleValue(row.get("Avg_ms")) * calls * 1_000_000d));
+        }
     }
 
     public synchronized void record(String tool, boolean success, long elapsedNanos) {
@@ -142,6 +160,24 @@ public final class ToolAudit {
             width = Math.max(width, String.valueOf(row.get(key)).length());
         }
         return width;
+    }
+
+    private static int intValue(Object value) {
+        if (value instanceof Number n) return n.intValue();
+        try {
+            return value == null ? 0 : Integer.parseInt(String.valueOf(value));
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private static double doubleValue(Object value) {
+        if (value instanceof Number n) return n.doubleValue();
+        try {
+            return value == null ? 0 : Double.parseDouble(String.valueOf(value));
+        } catch (Exception e) {
+            return 0;
+        }
     }
 
     private static final class Stat {

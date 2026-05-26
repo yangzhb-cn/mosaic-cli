@@ -128,6 +128,18 @@ class AgentTest {
     }
 
     @Test
+    void subAgentDoesNotArchiveInternalConversation(@TempDir Path temp) throws Exception {
+        MemoryManager memory = MemoryManager.forWorkspace(temp.resolve("workspace"));
+        memory.ensureWorkspace();
+        Agent agent = new Agent(new CapturingFakeLlm(), List.of(), 128000, 1, List.of(), new ToolAudit(), memory);
+
+        agent.runSubAgent("internal task", 1);
+
+        Path archive = memory.conversationsDir().resolve(java.time.LocalDate.now() + ".md");
+        assertFalse(Files.exists(archive));
+    }
+
+    @Test
     void chatAutoSavesActiveSessionAndArchivesExchange(@TempDir Path temp) throws Exception {
         MemoryManager memory = MemoryManager.forWorkspace(temp.resolve("workspace"));
         memory.ensureWorkspace();
@@ -147,6 +159,24 @@ class AgentTest {
         String archived = Files.readString(archive);
         assertTrue(archived.contains("remember this"));
         assertTrue(archived.contains("done"));
+    }
+
+    @Test
+    void autoSavedSessionRestoresAuditRecords(@TempDir Path temp) throws Exception {
+        SessionManager sessions = new SessionManager(temp.resolve("data"));
+        SessionManager.Session active = sessions.loadActiveOrCreate("test-model");
+        Agent agent = new Agent(new CapturingFakeLlm(), List.of(), 128000, 1, List.of(), new ToolAudit(temp.resolve("audits")), MemoryManager.disabled(), sessions);
+        agent.loadSession(active.messages(), active.conversationId(), active.auditRecords());
+        agent.audit().record("Read", true, 1_000_000);
+
+        agent.saveSession();
+        SessionManager.Session saved = sessions.load(active.id());
+        Agent restored = new Agent(new CapturingFakeLlm(), List.of(), 128000, 1, List.of(), new ToolAudit(temp.resolve("audits")), MemoryManager.disabled(), sessions);
+        restored.loadSession(saved.messages(), saved.conversationId(), saved.auditRecords());
+
+        assertEquals(agent.conversationId(), restored.conversationId());
+        assertTrue(restored.audit().table().contains("Read"));
+        assertTrue(restored.audit().table().contains("100.00%"));
     }
 
     @Test

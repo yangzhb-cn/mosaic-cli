@@ -48,6 +48,7 @@ public final class PlannerAgent {
         messages.add(Map.of("role", "system", "content", Prompt.plannerPrompt()));
         messages.add(Map.of("role", "user", "content", "请为下面任务生成 DAG 执行计划：\n" + task));
 
+        String lastError = "";
         for (int i = 0; i < MAX_ROUNDS; i++) {
             Map<Integer, Future<String>> futures = new LinkedHashMap<>();
             try (var pool = toolPool()) {
@@ -58,7 +59,16 @@ public final class PlannerAgent {
                         (idx, tc) -> toolExecutor.submit(futures, pool, idx, tc, null)
                 );
                 if (response.toolCalls().isEmpty()) {
-                    return PlanParser.parse(task, response.content());
+                    try {
+                        return PlanParser.parse(task, response.content());
+                    } catch (IllegalArgumentException e) {
+                        lastError = e.getMessage();
+                        messages.add(response.message());
+                        messages.add(Map.of("role", "user", "content",
+                                "上一次输出不是合法 plan JSON: " + lastError
+                                        + "\n请只输出严格 JSON，不要 Markdown，不要解释，格式为 {\"tasks\":[...]}。"));
+                        continue;
+                    }
                 }
 
                 messages.add(response.message());
@@ -70,9 +80,11 @@ public final class PlannerAgent {
                     message.put("content", results.get(j));
                     messages.add(message);
                 }
+                messages.add(Map.of("role", "user", "content",
+                        "如果已经掌握足够信息，下一轮请直接输出严格 JSON plan；只有确实缺少必要信息时才继续调用只读工具。"));
             }
         }
-        throw new IllegalStateException("Planner 达到最大轮数仍未输出 plan JSON");
+        throw new IllegalStateException("Planner 达到最大轮数仍未输出 plan JSON" + (lastError.isBlank() ? "" : ": " + lastError));
     }
 
     public List<String> toolNames() {

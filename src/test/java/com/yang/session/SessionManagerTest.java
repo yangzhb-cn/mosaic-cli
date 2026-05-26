@@ -33,14 +33,22 @@ class SessionManagerTest {
         SessionManager manager = new SessionManager(data);
         SessionManager.Session created = manager.loadActiveOrCreate("test-model");
         List<Map<String, Object>> messages = List.of(Map.of("role", "user", "content", "hello"));
+        List<Map<String, Object>> audit = List.of(Map.of(
+                "Tool", "Read",
+                "Calls", 2,
+                "Success", 1,
+                "Success_Rate", "50.00%",
+                "Avg_ms", 3.5
+        ));
 
-        manager.saveActive(messages, "test-model", "conversation_keep");
+        manager.saveActive(messages, "test-model", "conversation_keep", audit);
 
         SessionManager restarted = new SessionManager(data);
         SessionManager.Session restored = restarted.loadActiveOrCreate("other-model");
         assertEquals(created.id(), restored.id());
         assertEquals(messages, restored.messages());
         assertEquals("conversation_keep", restored.conversationId());
+        assertEquals(audit, restored.auditRecords());
     }
 
     @Test

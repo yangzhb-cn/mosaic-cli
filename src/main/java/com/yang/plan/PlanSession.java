@@ -48,7 +48,7 @@ public final class PlanSession {
     }
 
     public void finishExecuting() {
-        state = plan == null ? State.ACT : State.PLAN_READY;
+        clear();
     }
 
     public void clear() {

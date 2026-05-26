@@ -9,7 +9,7 @@ public final class PlanPrinter {
     }
 
     public static String table(ExecutionPlan plan) {
-        if (plan == null || plan.tasks().isEmpty()) return "当前没有计划。";
+        if (plan == null || plan.tasks().isEmpty()) return "📭 当前没有计划。";
         List<Row> rows = new ArrayList<>();
         rows.add(new Row("ID", "Type", "Status", "DependsOn", "Description"));
         for (PlanTask task : plan.tasks()) {

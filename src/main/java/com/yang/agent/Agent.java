@@ -17,14 +17,15 @@ import com.yang.audit.ToolAudit;
 import com.yang.cli.CliPlanController;
 import com.yang.context.ContextManager;
 import com.yang.im.ImClient;
-import com.yang.im.ImContext;
+import com.yang.im.ImRuntime;
 import com.yang.llm.LlmClient;
 import com.yang.memory.MemoryManager;
 import com.yang.plan.PlanRunner;
 import com.yang.plan.PlanSession;
 import com.yang.plan.PlannerAgent;
-import com.yang.prompt.Prompt;
+import com.yang.prompt.PromptMessageBuilder;
 import com.yang.session.SessionManager;
+import com.yang.session.SessionRuntime;
 import com.yang.skill.Skill;
 import com.yang.tool.ToolExecutor;
 import com.yang.tool.Tools;
@@ -38,15 +39,11 @@ public class Agent {
     public final List<Map<String, Object>> messages = new ArrayList<>();
     private final ToolExecutor toolExecutor;
     private final int maxRounds;
-    private final String system;
-    private final ImClient im;
-    private final List<Skill> skills;
-    private final List<Tools.Tool> mcpTools;
-    private final ToolAudit audit;
+    private final SessionRuntime session;
+    private final ImRuntime im;
+    private final PromptMessageBuilder promptBuilder;
+    private final SubAgentRunner subAgents;
     private final CliPlanController planController;
-    private final ImContext imContext;
-    private final MemoryManager memory;
-    private final SessionManager sessionManager;
     private TokenUsage lastTokenUsage = new TokenUsage(0, 0, 0, 0, 0);
 
     /** 记录最近一次回复的 token 用量和上下文占用比例。 */
@@ -79,21 +76,18 @@ public class Agent {
     }
 
     public Agent(LlmClient llm, int maxContextTokens, ImClient im, List<Tools.Tool> extraTools, List<Skill> skills, ToolAudit audit, MemoryManager memory, SessionManager sessionManager) {
+        List<Skill> skillList = List.copyOf(skills);
         this.llm = llm;
-        this.im = im;
-        this.skills = List.copyOf(skills);
-        this.audit = audit == null ? new ToolAudit() : audit;
-        this.memory = memory == null ? MemoryManager.disabled() : memory;
-        this.sessionManager = sessionManager == null ? SessionManager.disabled() : sessionManager;
+        this.im = new ImRuntime(im);
+        this.session = new SessionRuntime(llm, audit, memory, sessionManager, true);
         this.context = new ContextManager(maxContextTokens);
         // 最多允许模型-工具循环多少轮
         this.maxRounds = 50;
-        this.tools = Tools.all(this, extraTools, this.skills);
-        this.mcpTools = mcpTools(this.tools);
-        this.toolExecutor = new ToolExecutor(tools, this.audit);
-        this.planController = new CliPlanController(new PlannerAgent(llm, this.audit), new PlanRunner(this), messages, this::messagesChanged);
-        this.imContext = new ImContext();
-        this.system = Prompt.systemPrompt(systemTools(tools), this.skills);
+        this.tools = Tools.all(this, extraTools, skillList);
+        this.toolExecutor = new ToolExecutor(tools, this.session.audit());
+        this.promptBuilder = new PromptMessageBuilder(tools, skillList, this.session.memory());
+        this.subAgents = new SubAgentRunner(llm, tools, context.maxTokens, skillList, this.session.audit(), this.session.memory());
+        this.planController = new CliPlanController(new PlannerAgent(llm, this.session.audit()), new PlanRunner(this), messages, this::messagesChanged);
     }
 
     //  子 Agen 构造函数
@@ -114,20 +108,21 @@ public class Agent {
     }
 
     Agent(LlmClient llm, List<Tools.Tool> tools, int maxContextTokens, int maxRounds, List<Skill> skills, ToolAudit audit, MemoryManager memory, SessionManager sessionManager) {
+        this(llm, tools, maxContextTokens, maxRounds, skills, audit, memory, sessionManager, true);
+    }
+
+    Agent(LlmClient llm, List<Tools.Tool> tools, int maxContextTokens, int maxRounds, List<Skill> skills, ToolAudit audit, MemoryManager memory, SessionManager sessionManager, boolean archiveConversation) {
+        List<Skill> skillList = List.copyOf(skills);
         this.llm = llm;
-        this.im = null;
-        this.skills = List.copyOf(skills);
+        this.im = new ImRuntime(null);
         this.tools = tools;
-        this.mcpTools = mcpTools(this.tools);
-        this.audit = audit == null ? new ToolAudit() : audit;
-        this.memory = memory == null ? MemoryManager.disabled() : memory;
-        this.sessionManager = sessionManager == null ? SessionManager.disabled() : sessionManager;
-        this.toolExecutor = new ToolExecutor(tools, this.audit);
-        this.planController = new CliPlanController(new PlannerAgent(llm, this.audit), new PlanRunner(this), messages, this::messagesChanged);
-        this.imContext = new ImContext();
         this.context = new ContextManager(maxContextTokens);
         this.maxRounds = maxRounds;
-        this.system = Prompt.systemPrompt(systemTools(tools), this.skills);
+        this.session = new SessionRuntime(llm, audit, memory, sessionManager, archiveConversation);
+        this.toolExecutor = new ToolExecutor(tools, this.session.audit());
+        this.promptBuilder = new PromptMessageBuilder(tools, skillList, this.session.memory());
+        this.subAgents = new SubAgentRunner(llm, tools, context.maxTokens, skillList, this.session.audit(), this.session.memory());
+        this.planController = new CliPlanController(new PlannerAgent(llm, this.session.audit()), new PlanRunner(this), messages, this::messagesChanged);
     }
 
     public synchronized String chatCli(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool) throws Exception {
@@ -154,7 +149,7 @@ public class Agent {
             // 本轮工具执行共用一个固定线程池，最多并行 8 个工具。
             try (var pool = toolPool()) {
                 // 4. 调用大模型: 完整消息，包括 system prompt;工具 schema 列表;把流式返回的文本不断追加到 text
-                LlmClient.Response r = llm.chat(fullMessages(), toolExecutor.schemas(), token -> {
+                LlmClient.Response r = llm.chat(promptBuilder.fullMessages(messages), toolExecutor.schemas(), token -> {
                             text.append(token);
                             // 回调
                             if (onToken != null) onToken.accept(token);
@@ -171,7 +166,7 @@ public class Agent {
                     // 把模型回复加入消息历史。
                     messages.add(r.message());
                     lastTokenUsage = usage(promptTokens, cachedPromptTokens, completionTokens, contextTokens);
-                    memory.archiveExchange(userInput, r.content());
+                    session.archiveExchange(userInput, r.content());
                     saveSession();
                     // 返回模型的最终内容，结束 chat
                     return r.content();
@@ -198,7 +193,7 @@ public class Agent {
         }
         lastTokenUsage = usage(promptTokens, cachedPromptTokens, completionTokens, contextTokens);
         saveSession();
-        return "(已达到最大工具调用轮数)";
+        return "⚠️ 已达到最大工具调用轮数。";
     }
 
     private TokenUsage usage(int promptTokens, int cachedPromptTokens, int completionTokens, int contextTokens) {
@@ -211,15 +206,15 @@ public class Agent {
     }
 
     public ToolAudit audit() {
-        return audit;
+        return session.audit();
     }
 
     public String conversationId() {
-        return audit.conversationId();
+        return session.conversationId();
     }
 
     public String sessionId() {
-        return sessionManager.activeId();
+        return session.sessionId();
     }
 
     public boolean isPlanMode() {
@@ -239,7 +234,11 @@ public class Agent {
     }
 
     public synchronized String actPlan() throws Exception {
-        return planController.act();
+        return actPlan(null);
+    }
+
+    public synchronized String actPlan(Consumer<String> onProgress) throws Exception {
+        return planController.act(onProgress);
     }
 
     public synchronized String cancelPlan() {
@@ -258,100 +257,57 @@ public class Agent {
     }
 
     public synchronized String chatFromIm(String chatId, String userInput) throws Exception {
-        return imContext.chat(chatId, userInput, input -> chat(input, null, null));
+        return im.chat(chatId, userInput, input -> chat(input, null, null));
     }
 
     public ImClient imClient() {
-        return im;
+        return im.imClient();
     }
 
     public String currentImChatId() {
-        return imContext.currentChatId();
+        return im.currentChatId();
     }
 
     public void setCurrentImChatId(String chatId) {
-        imContext.setCurrentChatId(chatId);
+        im.setCurrentChatId(chatId);
     }
 
     // 清空对话历史
     public synchronized void reset() {
         messages.clear();
         planController.clear();
-        audit.reset();
+        session.resetAudit();
         lastTokenUsage = new TokenUsage(0, 0, 0, 0, context.maxTokens);
-        saveSessionQuietly();
+        session.saveQuietly(messages);
     }
 
     public synchronized void loadSession(List<Map<String, Object>> loadedMessages, String conversationId) {
+        loadSession(loadedMessages, conversationId, List.of());
+    }
+
+    public synchronized void loadSession(List<Map<String, Object>> loadedMessages, String conversationId, List<Map<String, Object>> auditRecords) {
         messages.clear();
         messages.addAll(loadedMessages == null ? List.of() : loadedMessages);
         planController.clear();
-        audit.restoreConversation(conversationId);
+        session.loadAudit(conversationId, auditRecords);
         lastTokenUsage = new TokenUsage(0, 0, 0, ContextManager.estimateTokens(messages), context.maxTokens);
     }
 
     public synchronized void saveSession() throws IOException {
-        sessionManager.saveActive(messages, llm.model, audit.conversationId());
+        session.save(messages);
     }
 
     public synchronized String updateMemory() throws IOException {
-        return memory.updateMemory(llm, messages) ? "长期记忆已更新: workspace/Mosaic.md" : "长期记忆未更新。";
+        return session.updateMemory(messages);
     }
 
     // 运行一个子 Agent 来处理某个任务
     public String runSubAgent(String task, int maxRounds) throws Exception {
-        List<Tools.Tool> subTools = tools.stream()
-                // 从当前工具列表里过滤掉名为 "Task" 的工具
-                .filter(t -> !"Task".equals(t.name()))
-                .toList();
-        Agent sub = new Agent(llm, subTools, context.maxTokens, maxRounds, skills, new ToolAudit(), memory);
-        // 让子 Agent 执行任务，且不给 token 回调、工具回调
-        return sub.chat(task, null, null);
-    }
-
-    // 构造发送给 LLM 的完整消息列表
-    private List<Map<String, Object>> fullMessages() {
-        List<Map<String, Object>> all = new ArrayList<>();
-        all.add(Map.of("role", "system", "content", system));
-        for (Map<String, Object> message : messages) {
-            all.add(new LinkedHashMap<>(message));
-        }
-        injectSystemReminder(all);
-        return all;
-    }
-
-    private void injectSystemReminder(List<Map<String, Object>> all) {
-        for (int i = all.size() - 1; i >= 0; i--) {
-            Map<String, Object> message = all.get(i);
-            if (!"user".equals(message.get("role"))) continue;
-            Object content = message.get("content");
-            String reminder = Prompt.systemReminder(mcpTools, skills, memory.readMemory());
-            if (!reminder.isBlank()) message.put("content", reminder + "\n\n" + (content == null ? "" : content));
-            return;
-        }
-    }
-
-    private static List<Tools.Tool> systemTools(List<Tools.Tool> tools) {
-        return tools.stream().filter(t -> !isMcpTool(t)).toList();
-    }
-
-    private static List<Tools.Tool> mcpTools(List<Tools.Tool> tools) {
-        return tools.stream().filter(Agent::isMcpTool).toList();
-    }
-
-    private static boolean isMcpTool(Tools.Tool tool) {
-        return tool.name().startsWith("mcp_");
+        return subAgents.run(task, maxRounds);
     }
 
     private void messagesChanged() {
         lastTokenUsage = usage(0, 0, 0, ContextManager.estimateTokens(messages));
-        saveSessionQuietly();
-    }
-
-    private void saveSessionQuietly() {
-        try {
-            saveSession();
-        } catch (IOException ignored) {
-        }
+        session.saveQuietly(messages);
     }
 }

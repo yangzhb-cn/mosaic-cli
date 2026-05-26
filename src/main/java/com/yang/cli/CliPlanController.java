@@ -36,8 +36,8 @@ public final class CliPlanController {
 
     public String chatCli(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool, ChatHandler fallback) throws Exception {
         if (session.awaitingTask()) return createPlan(userInput);
-        if (session.state() == PlanSession.State.EXECUTING) return "当前计划正在执行中。";
-        if (session.ready()) return "当前已有计划，请使用 /act 执行，或使用 /plan 重新规划，/cancel 取消。";
+        if (session.state() == PlanSession.State.EXECUTING) return "⏳ 当前计划正在执行中。";
+        if (session.ready()) return "🧭 当前已有计划，请使用 /act 执行，或使用 /plan 重新规划，/cancel 取消。";
         return fallback.chat(userInput, onToken, onTool);
     }
 
@@ -58,9 +58,15 @@ public final class CliPlanController {
     }
 
     public String createPlan(String task) throws Exception {
-        ExecutionPlan plan = plannerAgent.plan(task);
-        session.setPlan(plan);
-        String response = PlanPrinter.table(plan) + "\n\n/act 执行，/plan 重新规划，/cancel 取消。";
+        String response;
+        try {
+            ExecutionPlan plan = plannerAgent.plan(task);
+            session.setPlan(plan);
+            response = PlanPrinter.table(plan) + "\n\n🚀 /act 执行，🧭 /plan 重新规划，❌ /cancel 取消。";
+        } catch (Exception e) {
+            session.clear();
+            response = "❌ 规划失败: " + message(e) + "\n🧭 请重新输入 /plan 规划，或直接继续普通对话。";
+        }
         messages.add(Map.of("role", "user", "content", task));
         messages.add(Map.of("role", "assistant", "content", response));
         onMessagesChanged.run();
@@ -68,15 +74,26 @@ public final class CliPlanController {
     }
 
     public String act() throws Exception {
-        if (!session.ready()) return "当前没有可执行计划。";
+        return act(null);
+    }
+
+    public String act(Consumer<String> onProgress) throws Exception {
+        if (!session.ready()) return "📭 当前没有可执行计划。";
         session.executing();
         try {
-            PlanRunResult result = planRunner.run(session.plan());
+            ExecutionPlan plan = session.plan();
+            PlanRunResult result = planRunner.run(plan, onProgress);
             StringBuilder out = new StringBuilder();
-            out.append(result.success() ? "计划执行完成。" : "计划执行停止: " + result.failure());
-            out.append("\n\n").append(PlanPrinter.table(session.plan()));
+            out.append(result.success() ? "✅ 计划执行完成。" : "🛑 计划执行停止: " + result.failure());
+            out.append("\n\n").append(PlanPrinter.table(plan));
+            out.append("\n\n📋 任务结果:\n");
+            for (var task : plan.tasks()) {
+                out.append("- ").append(task.id()).append(" ").append(task.status()).append(": ")
+                        .append(taskSummary(task))
+                        .append('\n');
+            }
             if (!Tools.changedFiles().isEmpty()) {
-                out.append("\n\nChanged files:\n");
+                out.append("\n\n📝 Changed files:\n");
                 Tools.changedFiles().stream().sorted().forEach(f -> out.append("- ").append(f).append('\n'));
             }
             String response = out.toString().stripTrailing();
@@ -90,6 +107,22 @@ public final class CliPlanController {
 
     public String cancel() {
         session.clear();
-        return "已取消当前计划。";
+        return "❌ 已取消当前计划。";
+    }
+
+    private static String message(Exception e) {
+        String message = e.getMessage();
+        return message == null || message.isBlank() ? e.getClass().getSimpleName() : message;
+    }
+
+    private static String taskSummary(com.yang.plan.PlanTask task) {
+        String text = switch (task.status()) {
+            case COMPLETED -> task.result();
+            case FAILED -> task.error();
+            case PENDING -> "未执行";
+            case RUNNING -> "仍在执行";
+        };
+        text = text == null || text.isBlank() ? "无输出" : text.replaceAll("\\s+", " ").strip();
+        return text.length() > 300 ? text.substring(0, 300) + "..." : text;
     }
 }

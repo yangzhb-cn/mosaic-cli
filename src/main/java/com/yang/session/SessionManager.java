@@ -30,6 +30,7 @@ public final class SessionManager {
 
     /** 加载出来的完整 session。 */
     public record Session(String id, String model, String conversationId, List<Map<String, Object>> messages,
+                          List<Map<String, Object>> auditRecords,
                           String createdAt, String updatedAt) {}
 
     /** /session list 展示用信息。 */
@@ -70,7 +71,7 @@ public final class SessionManager {
         Path file = path(sid);
         if (Files.exists(file)) throw new IllegalArgumentException("会话已存在: " + sid);
         String now = now();
-        Session session = new Session(sid, model, ToolAudit.newConversationId(), List.of(), now, now);
+        Session session = new Session(sid, model, ToolAudit.newConversationId(), List.of(), List.of(), now, now);
         write(session);
         writeActiveId(sid);
         activeId = sid;
@@ -87,6 +88,10 @@ public final class SessionManager {
     }
 
     public synchronized void saveActive(List<Map<String, Object>> messages, String model, String conversationId) throws IOException {
+        saveActive(messages, model, conversationId, List.of());
+    }
+
+    public synchronized void saveActive(List<Map<String, Object>> messages, String model, String conversationId, List<Map<String, Object>> auditRecords) throws IOException {
         if (!enabled) return;
         Files.createDirectories(sessionsDir);
         if (activeId == null || activeId.isBlank()) {
@@ -94,7 +99,7 @@ public final class SessionManager {
         }
         Session old = load(activeId);
         String createdAt = old == null ? now() : old.createdAt();
-        Session session = new Session(activeId, model, conversationId, copyMessages(messages), createdAt, now());
+        Session session = new Session(activeId, model, conversationId, copyMessages(messages), copyMessages(auditRecords), createdAt, now());
         write(session);
         writeActiveId(activeId);
     }
@@ -106,11 +111,14 @@ public final class SessionManager {
         Map<String, Object> data = JSON.readValue(file.toFile(), new TypeReference<>() {});
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> messages = (List<Map<String, Object>>) data.getOrDefault("messages", List.of());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> auditRecords = (List<Map<String, Object>>) data.getOrDefault("audit_records", List.of());
         return new Session(
                 String.valueOf(data.getOrDefault("id", normalize(id))),
                 String.valueOf(data.getOrDefault("model", "?")),
                 String.valueOf(data.getOrDefault("conversation_id", ToolAudit.newConversationId())),
                 messages,
+                auditRecords,
                 String.valueOf(data.getOrDefault("created_at", "?")),
                 String.valueOf(data.getOrDefault("updated_at", "?"))
         );
@@ -141,6 +149,7 @@ public final class SessionManager {
         data.put("created_at", session.createdAt());
         data.put("updated_at", session.updatedAt());
         data.put("messages", session.messages());
+        data.put("audit_records", session.auditRecords());
         JSON.writerWithDefaultPrettyPrinter().writeValue(path(session.id()).toFile(), data);
     }
 
@@ -208,6 +217,6 @@ public final class SessionManager {
     }
 
     private static Session disabledSession(String model) {
-        return new Session("", model, ToolAudit.newConversationId(), List.of(), now(), now());
+        return new Session("", model, ToolAudit.newConversationId(), List.of(), List.of(), now(), now());
     }
 }

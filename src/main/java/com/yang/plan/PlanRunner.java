@@ -10,6 +10,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Consumer;
 
 /** 按 DAG 依赖并行执行计划任务，并处理重试、写任务串行和失败停止。 */
 public final class PlanRunner {
@@ -39,6 +40,10 @@ public final class PlanRunner {
     }
 
     public PlanRunResult run(ExecutionPlan plan) throws Exception {
+        return run(plan, null);
+    }
+
+    public PlanRunResult run(ExecutionPlan plan, Consumer<String> onProgress) throws Exception {
         if (plan == null || plan.tasks().isEmpty()) return new PlanRunResult(false, "当前没有可执行计划");
 
         String failure = null;
@@ -49,7 +54,8 @@ public final class PlanRunner {
                 if (!stopScheduling) {
                     for (PlanTask task : plan.readyTasks()) {
                         task.markRunning();
-                        running.put(task, pool.submit(() -> runWithRetry(task, plan)));
+                        progress(onProgress, subAgentCall(task));
+                        running.put(task, pool.submit(() -> runWithRetry(task, plan, onProgress)));
                     }
                 }
                 if (running.isEmpty()) break;
@@ -60,8 +66,10 @@ public final class PlanRunner {
                     TaskResult result = get(entry.getValue());
                     if (result.success()) {
                         entry.getKey().markCompleted(result.output());
+                        progress(onProgress, "✅ " + entry.getKey().id() + " 完成");
                     } else {
                         entry.getKey().markFailed(result.output());
+                        progress(onProgress, "❌ " + entry.getKey().id() + " 失败: " + result.output());
                         if (failure == null) failure = entry.getKey().id() + " 失败: " + result.output();
                         stopScheduling = true;
                     }
@@ -74,9 +82,10 @@ public final class PlanRunner {
         return new PlanRunResult(true, "");
     }
 
-    private TaskResult runWithRetry(PlanTask task, ExecutionPlan plan) {
+    private TaskResult runWithRetry(PlanTask task, ExecutionPlan plan, Consumer<String> onProgress) {
         String last = "";
         for (int i = 0; i < MAX_ATTEMPTS; i++) {
+            if (i > 0) progress(onProgress, "🔁 " + task.id() + " 重试 " + (i + 1) + "/" + MAX_ATTEMPTS);
             task.incrementAttempts();
             try {
                 String result = execute(task, plan);
@@ -109,6 +118,24 @@ public final class PlanRunner {
 
     private static TaskResult get(Future<TaskResult> future) throws ExecutionException, InterruptedException {
         return future.get();
+    }
+
+    private static void progress(Consumer<String> onProgress, String text) {
+        if (onProgress == null) return;
+        synchronized (onProgress) {
+            onProgress.accept(text);
+        }
+    }
+
+    private static String subAgentCall(PlanTask task) {
+        return "🔧 SubAgent(id=" + task.id()
+                + ", type=" + task.type()
+                + ", task=" + brief(task.description()) + ")";
+    }
+
+    private static String brief(String text) {
+        String s = text == null ? "" : text.replaceAll("\\s+", " ").strip();
+        return s.length() > 100 ? s.substring(0, 100) + "..." : s;
     }
 
     private static String prompt(PlanTask task, ExecutionPlan plan) {

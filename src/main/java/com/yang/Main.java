@@ -29,7 +29,7 @@ public class Main {
         // 从.env 文件或者环境变量中获取llm设置：环境变量 > .env
         Config c = Config.fromEnv();
         if (c.apiKey == null || c.apiKey.isBlank()) {
-            System.err.println("未找到 API key。请设置 DEEPSEEK_API_KEY。");
+            System.err.println("❌ 未找到 API key。请设置 DEEPSEEK_API_KEY。");
             System.exit(1);
         }
 
@@ -50,14 +50,14 @@ public class Main {
         SessionManager sessions = new SessionManager(Path.of("").toAbsolutePath().resolve("data"));
         SessionManager.Session activeSession = sessions.loadActiveOrCreate(c.model);
 
-        System.out.println(mcp.summary());
-        System.out.println("Skills: " + skills.size() + " loaded");
-        System.out.println("Memory: workspace/Mosaic.md");
-        System.out.println("Session: " + activeSession.id());
+        System.out.println("🔌 " + mcp.summary());
+        System.out.println("🧩 Skills: " + skills.size() + " loaded");
+        System.out.println("🧠 Memory: workspace/Mosaic.md");
+        System.out.println("🗂️ Session: " + activeSession.id());
 
         // 传入最大窗口，便于上下文压缩的配置策略
         Agent agent = new Agent(llm, c.maxContextTokens, im, mcp.tools(), skills, null, memory, sessions);
-        agent.loadSession(activeSession.messages(), activeSession.conversationId());
+        agent.loadSession(activeSession.messages(), activeSession.conversationId(), activeSession.auditRecords());
 
         // 启动 Telegram 后台监听
         if (im != null) startTelegram(im, agent, c);

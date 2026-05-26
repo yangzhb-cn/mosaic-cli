@@ -93,11 +93,11 @@ public final class CliRouter {
             return true;
         }
         if (line.startsWith("/plan ")) {
-            System.out.println("暂不支持 /plan <task>，请先输入 /plan，再输入要规划的任务。");
+            System.out.println("🧭 暂不支持 /plan <task>，请先输入 /plan，再输入要规划的任务。");
             return true;
         }
         if (line.equals("/act")) {
-            System.out.println(agent.actPlan());
+            System.out.println(agent.actPlan(System.out::println));
             return true;
         }
         if (line.equals("/cancel")) {
@@ -121,15 +121,15 @@ public final class CliRouter {
             String id = line.length() == "/session new".length() ? null : line.substring("/session new ".length()).strip();
             try {
                 SessionManager.Session session = sessions.create(id, llm.model);
-                agent.loadSession(session.messages(), session.conversationId());
+                agent.loadSession(session.messages(), session.conversationId(), session.auditRecords());
                 System.out.println("🆕 已创建并切换到会话: " + session.id());
             } catch (IllegalArgumentException e) {
-                System.out.println("错误: " + e.getMessage());
+                System.out.println("❌ 错误: " + e.getMessage());
             }
             return true;
         }
         if (line.equals("/session switch")) {
-            System.out.println("用法: /session switch <session_id>");
+            System.out.println("💡 用法: /session switch <session_id>");
             return true;
         }
         if (line.startsWith("/session switch ")) {
@@ -139,7 +139,7 @@ public final class CliRouter {
                 System.out.println("📭 未找到会话: " + id);
                 return true;
             }
-            agent.loadSession(session.messages(), session.conversationId());
+            agent.loadSession(session.messages(), session.conversationId(), session.auditRecords());
             System.out.println("📂 已切换到会话: " + session.id());
             if (llm != null && session.model() != null && !session.model().equals(llm.model)) {
                 System.out.println("⚠️ 保存时模型是 " + session.model() + "，当前模型是 " + llm.model + "。");
@@ -148,12 +148,12 @@ public final class CliRouter {
         }
         if (line.equals("/session")) {
             String id = agent == null ? "" : agent.sessionId();
-            if (id != null && !id.isBlank()) System.out.println("Session: " + id);
+            if (id != null && !id.isBlank()) System.out.println("🗂️ Session: " + id);
             printUserMessages(agent.messages);
             return true;
         }
         if (line.startsWith("/session ")) {
-            System.out.println("用法: /session、/session list、/session new [id]、/session switch <id>");
+            System.out.println("💡 用法: /session、/session list、/session new [id]、/session switch <id>");
             return true;
         }
         if (line.equals("/memory update")) {

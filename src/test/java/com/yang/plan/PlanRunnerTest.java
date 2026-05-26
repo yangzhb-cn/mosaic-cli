@@ -18,14 +18,17 @@ class PlanRunnerTest {
                 new PlanTask("T2", "second", TaskType.ANALYSIS, List.of("T1"))
         ));
         List<String> order = new ArrayList<>();
+        List<String> progress = new ArrayList<>();
 
         new PlanRunner((task, ignored) -> {
             order.add(task.id());
             return "ok";
-        }).run(plan);
+        }).run(plan, progress::add);
 
         assertEquals(List.of("T1", "T2"), order);
         assertTrue(plan.allCompleted());
+        assertTrue(progress.stream().anyMatch(s -> s.contains("🔧 SubAgent(") && s.contains("id=T1") && s.contains("task=first")));
+        assertTrue(progress.stream().anyMatch(s -> s.contains("T2") && s.contains("完成")));
     }
 
     @Test
