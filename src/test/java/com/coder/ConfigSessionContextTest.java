@@ -142,7 +142,7 @@ class ConfigSessionContextTest {
         @Override
         public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
             systemPrompt = String.valueOf(messages.getFirst().get("content"));
-            return new Response("captured summary", "", List.of(), 0, 0);
+            return new Response("captured summary", "", List.of(), 0, 0, 0);
         }
     }
 }

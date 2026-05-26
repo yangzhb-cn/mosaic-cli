@@ -99,6 +99,9 @@ class SkillLoaderTest {
         assertTrue(prompt.contains("\"name\" : \"SearchTool\""));
         assertTrue(prompt.contains("\"description\" : \"Search test files\""));
         assertTrue(reminder.startsWith("<system-reminder>"));
+        assertTrue(reminder.contains("# 当前环境"));
+        assertTrue(reminder.contains("当前日期时间"));
+        assertTrue(reminder.contains("相对时间"));
         assertTrue(reminder.contains("# 工具选择优先级"));
         assertTrue(reminder.contains("安装 MCP 时"));
         assertFalse(reminder.contains("SearchTool: Search test files"));
@@ -117,6 +120,7 @@ class SkillLoaderTest {
         String reminder = Prompt.systemReminder(List.of(), List.of());
 
         assertTrue(reminder.startsWith("<system-reminder>"));
+        assertTrue(reminder.contains("当前日期时间"));
         assertTrue(reminder.contains("# 工具选择优先级"));
         assertFalse(reminder.contains("# MCP 工具"));
         assertFalse(reminder.contains("# Skills"));

@@ -3,6 +3,8 @@ package com.coder.prompt;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import com.coder.skill.Skill;
@@ -28,6 +30,8 @@ public class Prompt {
     public static String systemReminder(List<Tools.Tool> mcpTools, List<Skill> skills) {
         StringBuilder s = new StringBuilder();
         s.append("<system-reminder>\n");
+        s.append("# 当前环境\n");
+        s.append("- 用户提到“今天、今日、昨天、明天、最近、当前、今年、本月”等相对时间时，先按当前日期换算成明确日期，再搜索或回答。\n\n");
         s.append("""
                 # 工具选择优先级
                 - 代码库相关问题（类、函数、调用关系、哪里实现了某功能）优先用 Glob、Grep、Read、LS 或 Task，不要先用 WebSearch。

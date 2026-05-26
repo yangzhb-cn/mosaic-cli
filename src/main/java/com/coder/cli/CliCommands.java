@@ -18,6 +18,7 @@ import com.coder.mcp.McpManager;
 import com.coder.tool.Tools;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /* 
@@ -108,8 +109,10 @@ public final class CliCommands {
             return true;
         }
         if (line.equals("/tokens")) {
-            String s = "📊 Token: 输入=" + llm.totalPromptTokens + "，输出=" + llm.totalCompletionTokens + "，合计="
-                    + (llm.totalPromptTokens + llm.totalCompletionTokens);
+            String s = "📊 Token: 总输入=" + llm.totalPromptTokens + "，缓存输入=" + llm.totalCachedPromptTokens
+                    + "，输出=" + llm.totalCompletionTokens + "，合计="
+                    + (llm.totalPromptTokens + llm.totalCompletionTokens)
+                    + "，上下文=" + agent.lastTokenUsage().contextPercent() + "%";
             System.out.println(s);
             return true;
         }
@@ -159,6 +162,7 @@ public final class CliCommands {
         System.out.println("\n🤔 思考中...");
         // 累积模型流式输出的内容
         StringBuilder streamed = new StringBuilder();
+        long started = System.nanoTime();
 
         // agent.chat(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool)
         // 真正发起一次聊天（涉及两次回调）
@@ -181,6 +185,22 @@ public final class CliCommands {
 
         // 如果已经流式了，就打印空行，否则response兜底
         System.out.println(streamed.isEmpty() ? "🤖 Agent: " + stripLeadingBlank(response) : "");
+        printUsage(agent.lastTokenUsage(), System.nanoTime() - started);
+    }
+
+    private static void printUsage(Agent.TokenUsage usage, long elapsedNanos) {
+        System.out.println("📊 Token: 总输入=" + usage.promptTokens()
+                + "，缓存输入=" + usage.cachedPromptTokens()
+                + "，输出=" + usage.completionTokens()
+                + "，耗时=" + duration(elapsedNanos)
+                + "，上下文=" + usage.contextPercent() + "% used");
+    }
+
+    private static String duration(long elapsedNanos) {
+        double seconds = Math.max(0.001, elapsedNanos / 1_000_000_000d);
+        if (seconds < 60) return String.format(Locale.ROOT, "%.1fs", seconds);
+        long minutes = (long) (seconds / 60);
+        return minutes + "m " + String.format(Locale.ROOT, "%.1fs", seconds % 60);
     }
 
     private static boolean isExit(String line) {

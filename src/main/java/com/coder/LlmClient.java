@@ -26,6 +26,7 @@ public class LlmClient {
     public final String baseUrl;
     public final double temperature;
     public int totalPromptTokens;
+    public int totalCachedPromptTokens;
     public int totalCompletionTokens;
     private volatile String lastRequestJson = "";
 
@@ -39,7 +40,8 @@ public class LlmClient {
     }
 
     // 一次响应结果
-    public record Response(String content, String reasoningContent, List<ToolCall> toolCalls, int promptTokens, int completionTokens) {
+    public record Response(String content, String reasoningContent, List<ToolCall> toolCalls, int promptTokens,
+                           int cachedPromptTokens, int completionTokens) {
         // 把 Response 转成一个适合塞回对话历史的消息对象
         Map<String, Object> message() {
             Map<String, Object> msg = new LinkedHashMap<>();
@@ -137,6 +139,7 @@ public class LlmClient {
             Map<Integer, PartialToolCall> toolMap = new TreeMap<>();
             // 记录 token 数
             int prompt = 0;
+            int cachedPrompt = 0;
             int completion = 0;
 
             // 5. 读取 SSE 流
@@ -158,6 +161,7 @@ public class LlmClient {
                 JsonNode usage = root.get("usage");
                 if (usage != null && !usage.isNull()) {
                     prompt = usage.path("prompt_tokens").asInt(0);
+                    cachedPrompt = cachedPromptTokens(usage);
                     completion = usage.path("completion_tokens").asInt(0);
                 }
 
@@ -228,11 +232,20 @@ public class LlmClient {
                     .toList();
             // 累加全局 prompt token 统计。
             totalPromptTokens += prompt;
+            // 累加全局缓存命中的输入 token 统计。
+            totalCachedPromptTokens += cachedPrompt;
             // 累加全局 completion token 统计。
             totalCompletionTokens += completion;
             // 返回llm 本次完整结果
-            return new Response(content.toString(), reasoning.toString(), calls, prompt, completion);
+            return new Response(content.toString(), reasoning.toString(), calls, prompt, cachedPrompt, completion);
         }
+    }
+
+    private static int cachedPromptTokens(JsonNode usage) {
+        int cached = usage.path("prompt_cache_hit_tokens").asInt(0);
+        if (cached > 0) return cached;
+        JsonNode details = usage.path("prompt_tokens_details");
+        return details.isObject() ? details.path("cached_tokens").asInt(0) : usage.path("cached_tokens").asInt(0);
     }
 
     // 拼接 API 地址 endpoint(),兼容不同 API 基础地址

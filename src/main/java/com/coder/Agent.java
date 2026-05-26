@@ -31,6 +31,14 @@ public class Agent {
     private final List<Skill> skills;
     private final List<Tools.Tool> mcpTools;
     private volatile String currentImChatId;
+    private TokenUsage lastTokenUsage = new TokenUsage(0, 0, 0, 0, 0);
+
+    public record TokenUsage(int promptTokens, int cachedPromptTokens, int completionTokens, int contextTokens, int maxContextTokens) {
+        public int contextPercent() {
+            if (maxContextTokens <= 0) return 0;
+            return Math.min(100, Math.round(contextTokens * 100f / maxContextTokens));
+        }
+    }
 
     // 通用 Agent
     public Agent(LlmClient llm, int maxContextTokens) {
@@ -77,6 +85,10 @@ public class Agent {
         messages.add(Map.of("role", "user", "content", userInput));
         // 2. 检查当前消息是否太长
         context.maybeCompress(messages, llm);
+        int promptTokens = 0;
+        int cachedPromptTokens = 0;
+        int completionTokens = 0;
+        int contextTokens = 0;
         // 3. 开始最多 maxRounds 轮的“模型 -> 工具 -> 模型”循环
         for (int i = 0; i < maxRounds; i++) {
             // 收集模型本轮生成的普通文本内容
@@ -94,11 +106,16 @@ public class Agent {
                         },
                         // 某个流式工具参数拼完整后，立即提交到线程池执行。
                         (idx, tc) -> toolExecutor.submit(futures, pool, idx, tc, onTool));
+                promptTokens += r.promptTokens();
+                cachedPromptTokens += r.cachedPromptTokens();
+                completionTokens += r.completionTokens();
+                if (r.promptTokens() > 0) contextTokens = r.promptTokens();
 
                 // 5a. 没有要求调用任何工具
                 if (r.toolCalls().isEmpty()) {
                     // 把模型回复加入消息历史。
                     messages.add(r.message());
+                    lastTokenUsage = usage(promptTokens, cachedPromptTokens, completionTokens, contextTokens);
                     // 返回模型的最终内容，结束 chat
                     return r.content();
                 }
@@ -122,7 +139,17 @@ public class Agent {
             // 工具执行完之后，再检查一次消息是否过长。因为工具结果也可能很长
             context.maybeCompress(messages, llm);
         }
+        lastTokenUsage = usage(promptTokens, cachedPromptTokens, completionTokens, contextTokens);
         return "(已达到最大工具调用轮数)";
+    }
+
+    private TokenUsage usage(int promptTokens, int cachedPromptTokens, int completionTokens, int contextTokens) {
+        int current = contextTokens > 0 ? contextTokens : ContextManager.estimateTokens(messages);
+        return new TokenUsage(promptTokens, cachedPromptTokens, completionTokens, current, context.maxTokens);
+    }
+
+    public TokenUsage lastTokenUsage() {
+        return lastTokenUsage;
     }
 
     private static ExecutorService toolPool() {
@@ -156,6 +183,7 @@ public class Agent {
     // 清空对话历史
     public synchronized void reset() {
         messages.clear();
+        lastTokenUsage = new TokenUsage(0, 0, 0, 0, context.maxTokens);
     }
 
     // 运行一个子 Agent 来处理某个任务

@@ -39,6 +39,7 @@ class AgentTest {
         // tool_call_id 也保持与原始 tool_calls 顺序一致。
         assertEquals("call_slow", agent.messages.get(2).get("tool_call_id"));
         assertEquals("call_fast", agent.messages.get(3).get("tool_call_id"));
+        assertEquals(new Agent.TokenUsage(30, 10, 7, 20, 128000), agent.lastTokenUsage());
     }
 
     @Test
@@ -99,7 +100,7 @@ class AgentTest {
         @Override
         public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
             if (onToken != null) onToken.accept("done");
-            return new Response("done", "", List.of(), 0, 0);
+            return new Response("done", "", List.of(), 0, 0, 0);
         }
     }
 
@@ -113,7 +114,7 @@ class AgentTest {
         @Override
         public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
             lastMessages = messages;
-            return new Response("done", "", List.of(), 0, 0);
+            return new Response("done", "", List.of(), 0, 0, 0);
         }
     }
 
@@ -146,12 +147,12 @@ class AgentTest {
                     Thread.currentThread().interrupt();
                 }
                 // 第一轮响应仍然返回完整 tool_calls，供 Agent 写入 assistant 消息。
-                return new Response("", "", List.of(slow, fast), 0, 0);
+                return new Response("", "", List.of(slow, fast), 10, 3, 2);
             }
             // 第二轮模拟普通文本流式输出。
             if (onToken != null) onToken.accept("done");
             // 第二轮没有工具调用，结束 Agent.chat。
-            return new Response("done", "", List.of(), 0, 0);
+            return new Response("done", "", List.of(), 20, 7, 5);
         }
     }
 
@@ -168,9 +169,9 @@ class AgentTest {
             if (calls == 1) {
                 ToolCall call = new ToolCall("call_strict", "Strict", Map.of("input", "ok", "extra", "ignored"));
                 if (onToolReady != null) onToolReady.accept(0, call);
-                return new Response("", "", List.of(call), 0, 0);
+                return new Response("", "", List.of(call), 0, 0, 0);
             }
-            return new Response("fixed", "", List.of(), 0, 0);
+            return new Response("fixed", "", List.of(), 0, 0, 0);
         }
     }
 

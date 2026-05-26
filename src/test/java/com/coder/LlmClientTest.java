@@ -32,7 +32,7 @@ class LlmClientTest {
 
                 data: {"choices":[{"delta":{"content":"world"}}]}
 
-                data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5}}
+                data: {"choices":[],"usage":{"prompt_tokens":10,"prompt_cache_hit_tokens":4,"completion_tokens":5}}
 
                 data: [DONE]
 
@@ -46,8 +46,10 @@ class LlmClientTest {
         assertEquals("hello world", r.content());
         assertEquals(List.of("hello ", "world"), tokens);
         assertEquals(10, r.promptTokens());
+        assertEquals(4, r.cachedPromptTokens());
         assertEquals(5, r.completionTokens());
         assertEquals(10, llm.totalPromptTokens);
+        assertEquals(4, llm.totalCachedPromptTokens);
         assertEquals(5, llm.totalCompletionTokens);
 
         JsonNode request = JSON.readTree(llm.lastRequestJson());
