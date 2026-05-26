@@ -2,9 +2,12 @@ package com.yang;
 
 import com.yang.cli.CliBanner;
 import com.yang.cli.CliCommands;
+import com.yang.agent.Agent;
+import com.yang.config.Config;
 import com.yang.im.ImClient;
 import com.yang.im.ImMessage;
 import com.yang.im.TelegramImClient;
+import com.yang.llm.LlmClient;
 import com.yang.mcp.McpManager;
 import com.yang.session.SessionStore;
 import com.yang.skill.Skill;
@@ -14,6 +17,7 @@ import com.yang.tool.Tools;
 import java.util.List;
 import java.util.Set;
 
+/** 程序入口，负责装配配置、LLM、MCP、Skill、IM 和 CLI 主循环。 */
 public class Main {
     // 版本号
     public static final String VERSION = "0.1.0";

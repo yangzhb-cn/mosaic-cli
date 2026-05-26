@@ -1,5 +1,7 @@
 package com.yang;
 
+import com.yang.agent.Agent;
+import com.yang.llm.LlmClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -185,15 +187,16 @@ class ToolsTest {
     void imAgentRegistersSendMessageTool() {
         FakeImClient im = new FakeImClient();
         Agent agent = new Agent(new LlmClient("m", "k", "http://localhost", 0), 1000, im);
-        assertNotNull(Tools.get(agent.tools, "send_message"));
-        assertEquals(14, agent.tools.size());
+        List<Tools.Tool> tools = Tools.all(agent);
+        assertNotNull(Tools.get(tools, "send_message"));
+        assertEquals(14, tools.size());
     }
 
     @Test
     void sendMessageToolUsesCurrentImChat() {
         FakeImClient im = new FakeImClient();
         Agent agent = new Agent(new LlmClient("m", "k", "http://localhost", 0), 1000, im);
-        Tools.Tool send = Tools.get(agent.tools, "send_message");
+        Tools.Tool send = Tools.get(Tools.all(agent), "send_message");
         assertNotNull(send);
 
         assertTrue(send.execute(Map.of("text", "hi")).contains("当前没有可用的 IM 会话"));

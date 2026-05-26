@@ -3,6 +3,8 @@ package com.yang.prompt;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import com.yang.skill.Skill;
@@ -10,6 +12,7 @@ import com.yang.tool.Tools;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+/** 加载和组装系统提示词、压缩提示词及动态 system-reminder。 */
 public class Prompt {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String SYSTEM_PROMPT = load("system-prompt.md");
@@ -29,6 +32,7 @@ public class Prompt {
         StringBuilder s = new StringBuilder();
         s.append("<system-reminder>\n");
         s.append("# 当前环境\n");
+        s.append("- 当前日期时间: ").append(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)).append('\n');
         s.append("- 用户提到“今天、今日、昨天、明天、最近、当前、今年、本月”等相对时间时，先按当前日期换算成明确日期，再搜索或回答。\n\n");
         s.append("""
                 # 工具选择优先级

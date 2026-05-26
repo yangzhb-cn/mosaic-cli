@@ -6,12 +6,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import com.yang.LlmClient;
+import com.yang.llm.LlmClient;
 import com.yang.prompt.Prompt;
 
-/**
- * 管理对话上下文长度，在上下文过大时按层级压缩历史消息。
- */
+/** 管理上下文 token 估算、system-reminder 清理和历史消息压缩。 */
 public class ContextManager {
     /** 动态系统提醒只用于请求注入，压缩上下文时要忽略。 */
     private static final Pattern SYSTEM_REMINDER = Pattern.compile("(?s)<system-reminder>.*?</system-reminder>\\R*");

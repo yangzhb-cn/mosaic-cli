@@ -1,6 +1,7 @@
-package com.yang;
+package com.yang.config;
 
 import com.yang.context.ContextManager;
+import com.yang.llm.LlmClient;
 import com.yang.session.SessionStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

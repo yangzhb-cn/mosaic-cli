@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/** 将 MCP 返回的参数 schema 简化为 LLM 工具调用可接受的 JSON Schema。 */
 final class McpSchemaSimplifier {
     private McpSchemaSimplifier() {
     }

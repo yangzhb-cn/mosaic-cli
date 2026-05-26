@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 // 一个文件内多处精确替换，全部成功才写入
+/** MultiEdit 工具实现，对同一文件按顺序执行多处文本替换。 */
 public final class MultiEditTool extends ToolBase {
     @Override
     public String name() { return "MultiEdit"; }

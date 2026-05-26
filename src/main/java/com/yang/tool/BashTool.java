@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 // 执行 shell 命令，带超时、危险命令拦截、输出截断
+/** Bash 工具实现，执行受基础安全规则约束的 shell 命令。 */
 public final class BashTool extends ToolBase {
     private static final String[][] DANGEROUS = {
             {"\\brm\\s+(-\\w*)?-r\\w*\\s+(/|~|\\$HOME)", "递归删除根目录或用户目录"},

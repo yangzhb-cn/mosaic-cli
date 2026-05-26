@@ -22,6 +22,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+/** 负责启动、管理和关闭 MCP 客户端，并把 MCP tool 适配为本地工具。 */
 public final class McpManager implements AutoCloseable {
     private static final io.modelcontextprotocol.json.McpJsonMapper JSON_MAPPER = new JacksonMcpJsonMapperSupplier().get();
 
@@ -30,12 +31,15 @@ public final class McpManager implements AutoCloseable {
     private final List<Tools.Tool> tools;
     private final List<McpSyncClient> clients;
 
+    /** 表示单个 MCP server 的加载状态和错误信息。 */
     public record ServerStatus(String name, boolean loaded, int toolCount, String error) {
     }
 
+    /** MCP server 启动后的客户端、工具列表和状态。 */
     private record ServerLoad(McpConfig.Server server, ServerStatus status, McpSyncClient client, List<io.modelcontextprotocol.spec.McpSchema.Tool> tools) {
     }
 
+    /** 正在并发加载的 MCP server 任务。 */
     private record ServerTask(McpConfig.Server server, Future<ServerLoad> future) {
     }
 

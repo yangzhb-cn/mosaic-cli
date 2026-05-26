@@ -2,9 +2,10 @@ package com.yang.tool;
 
 import java.util.Map;
 
-import com.yang.Agent;
+import com.yang.agent.Agent;
 
 // 	IM 模式下主动给当前 Telegram 会话发消息
+/** send_message 工具实现，把 Agent 回复发送到当前 IM 会话。 */
 public final class SendMessageTool extends ToolBase {
     private final Agent agent;
 

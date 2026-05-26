@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 // 读取文本文件，带行号、offset、limit
+/** Read 工具实现，以带行号文本读取文件内容。 */
 public final class ReadFileTool extends ToolBase {
     @Override
     public String name() { return "Read"; }

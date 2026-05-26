@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+/** 统计当前会话的工具调用次数、成功率、耗时，并按需保存审计快照。 */
 public final class ToolAudit {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Pattern UNSAFE = Pattern.compile("[^A-Za-z0-9._-]+");

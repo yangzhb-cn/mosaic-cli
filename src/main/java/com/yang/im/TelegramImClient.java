@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+/** Telegram Bot 长轮询客户端，把 Telegram 消息适配成统一 IM 事件。 */
 public class TelegramImClient implements ImClient {
     private static final String BASE_URL = "https://api.telegram.org/bot";
     private static final int MAX_MESSAGE = 4096;
@@ -124,6 +125,7 @@ public class TelegramImClient implements ImClient {
         }
     }
 
+    /** Telegram update_id 与解析后的 IM 消息。 */
     private record Update(long id, ImMessage message) {
     }
 }

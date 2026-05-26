@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/** 从本机约定目录发现并读取可用 Skill。 */
 public final class SkillLoader {
     private SkillLoader() {
     }

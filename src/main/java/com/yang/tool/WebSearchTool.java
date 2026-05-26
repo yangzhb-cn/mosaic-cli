@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 // 使用 Tavily Search API 搜索网页，返回可引用的链接和摘要
+/** WebSearch 工具实现，通过 Tavily API 执行网页搜索。 */
 public final class WebSearchTool extends ToolBase {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final MediaType JSON_TYPE = MediaType.parse("application/json");

@@ -1,4 +1,4 @@
-package com.yang;
+package com.yang.config;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -7,10 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/*  提供默认配置
-* 从环境变量和 .env 文件加载运行参数
-* 统一输出一个 Config 对象给程序其他部分使用
-*/
+/** 从环境变量和 .env 文件读取运行配置，并提供默认值。 */
 public class Config {
     public static final String MODEL = "deepseek-v4-flash";
 

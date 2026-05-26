@@ -1,5 +1,6 @@
-package com.yang;
+package com.yang.agent;
 
+import com.yang.llm.LlmClient;
 import org.junit.jupiter.api.Test;
 
 import com.yang.skill.Skill;
@@ -80,6 +81,37 @@ class AgentTest {
     }
 
     @Test
+    void cliPlanningUsesPlannerAndKeepsPlannerMessagesOutOfMainSession() throws Exception {
+        PlanningFakeLlm llm = new PlanningFakeLlm();
+        Agent agent = new Agent(llm, List.of(), 128000, 1);
+        agent.enterPlanMode();
+
+        String response = agent.chatCli("plan this", null, null);
+
+        assertTrue(response.contains("ID"));
+        assertTrue(response.contains("T1"));
+        assertTrue(response.contains("/act 执行"));
+        assertEquals("plan this", agent.messages.getFirst().get("content"));
+        assertEquals(2, agent.messages.size());
+        assertTrue(String.valueOf(llm.lastMessages.getFirst().get("content")).contains("Planner Agent"));
+        assertFalse(String.valueOf(agent.messages.getLast().get("content")).contains("Planner Agent"));
+        assertTrue(agent.planSession().ready());
+    }
+
+    @Test
+    void imChatDoesNotConsumeCliPlanInput() throws Exception {
+        CapturingFakeLlm llm = new CapturingFakeLlm();
+        Agent agent = new Agent(llm, List.of(), 128000, 1);
+        agent.enterPlanMode();
+
+        String response = agent.chatFromIm("chat-1", "hello from im");
+
+        assertEquals("done", response);
+        assertTrue(agent.planSession().awaitingTask());
+        assertEquals("hello from im", agent.messages.getFirst().get("content"));
+    }
+
+    @Test
     void rejectsUnknownToolArgumentsBeforeExecute() throws Exception {
         InvalidArgsFakeLlm llm = new InvalidArgsFakeLlm();
         StrictTool tool = new StrictTool();
@@ -127,6 +159,20 @@ class AgentTest {
         public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
             lastMessages = messages;
             return new Response("done", "", List.of(), 0, 0, 0);
+        }
+    }
+
+    private static final class PlanningFakeLlm extends LlmClient {
+        private List<Map<String, Object>> lastMessages;
+
+        private PlanningFakeLlm() {
+            super("test-model", "key", "http://localhost", 0);
+        }
+
+        @Override
+        public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
+            lastMessages = messages;
+            return new Response("{\"tasks\":[{\"id\":\"T1\",\"description\":\"read files\",\"type\":\"FILE_READ\",\"dependencies\":[]}]}", "", List.of(), 0, 0, 0);
         }
     }
 

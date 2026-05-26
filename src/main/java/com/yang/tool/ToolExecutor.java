@@ -1,6 +1,6 @@
 package com.yang.tool;
 
-import com.yang.LlmClient;
+import com.yang.llm.LlmClient;
 import com.yang.audit.ToolAudit;
 
 import java.util.ArrayList;
@@ -11,6 +11,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.function.BiConsumer;
 
+/** 负责工具参数校验、并发执行、结果收集和审计记录。 */
 public final class ToolExecutor {
     private final List<Tools.Tool> tools;
     private final ToolAudit audit;

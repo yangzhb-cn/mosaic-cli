@@ -2,9 +2,10 @@ package com.yang.tool;
 
 import java.util.Map;
 
-import com.yang.Agent;
+import com.yang.agent.Agent;
 
 // 启动子 Agent 做子任务，子 Agent 不再拥有 Task 工具
+/** Task 工具实现，用父 Agent 派生子 Agent 执行独立任务。 */
 public final class AgentTool extends ToolBase {
     private final Agent parent;
 

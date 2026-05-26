@@ -15,9 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-/**
- * 负责把当前对话保存为本地 JSON 文件，并从本地 JSON 文件恢复会话。
- */
+/** 负责把会话消息、模型和 conversation_id 保存到本地并支持加载列表。 */
 public class SessionStore {
     /** 项目统一使用的 JSON 序列化器。 */
     private static final ObjectMapper JSON = new ObjectMapper();
@@ -34,9 +32,7 @@ public class SessionStore {
     /** 会话列表页展示用的轻量信息。 */
     public record SessionInfo(String id, String model, String savedAt, String preview) {}
 
-    /**
-     * 使用默认目录 ~/.corecoder/sessions 保存会话。
-     */
+    /** 使用默认目录 ~/.mosaiccoder/sessions 保存会话。 */
     public SessionStore() {
         // 默认把会话放到用户目录下的隐藏目录，避免污染项目文件。
         this(Path.of(System.getProperty("user.home"), ".mosaiccoder", "sessions"));

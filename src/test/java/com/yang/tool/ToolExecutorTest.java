@@ -1,6 +1,6 @@
 package com.yang.tool;
 
-import com.yang.LlmClient;
+import com.yang.llm.LlmClient;
 import com.yang.audit.ToolAudit;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -149,4 +149,5 @@ class ToolExecutorTest {
             return "错误: failed";
         }
     }
+
 }

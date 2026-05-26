@@ -1,4 +1,4 @@
-package com.yang;
+package com.yang.agent;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -13,13 +13,20 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import com.yang.audit.ToolAudit;
+import com.yang.cli.CliPlanController;
 import com.yang.context.ContextManager;
 import com.yang.im.ImClient;
+import com.yang.im.ImContext;
+import com.yang.llm.LlmClient;
+import com.yang.plan.PlanRunner;
+import com.yang.plan.PlanSession;
+import com.yang.plan.PlannerAgent;
 import com.yang.prompt.Prompt;
 import com.yang.skill.Skill;
 import com.yang.tool.ToolExecutor;
 import com.yang.tool.Tools;
 
+/** 核心 ReAct Agent，维护会话消息并协调 LLM、工具、上下文压缩和子 Agent。 */
 public class Agent {
     final LlmClient llm;
     final List<Tools.Tool> tools;
@@ -33,9 +40,11 @@ public class Agent {
     private final List<Skill> skills;
     private final List<Tools.Tool> mcpTools;
     private final ToolAudit audit;
-    private volatile String currentImChatId;
+    private final CliPlanController planController;
+    private final ImContext imContext;
     private TokenUsage lastTokenUsage = new TokenUsage(0, 0, 0, 0, 0);
 
+    /** 记录最近一次回复的 token 用量和上下文占用比例。 */
     public record TokenUsage(int promptTokens, int cachedPromptTokens, int completionTokens, int contextTokens, int maxContextTokens) {
         public int contextPercent() {
             if (maxContextTokens <= 0) return 0;
@@ -67,6 +76,8 @@ public class Agent {
         this.tools = Tools.all(this, extraTools, this.skills);
         this.mcpTools = mcpTools(this.tools);
         this.toolExecutor = new ToolExecutor(tools, this.audit);
+        this.planController = new CliPlanController(new PlannerAgent(llm, this.audit), new PlanRunner(this), messages, this::refreshLastTokenUsage);
+        this.imContext = new ImContext();
         this.system = Prompt.systemPrompt(systemTools(tools), this.skills);
     }
 
@@ -87,9 +98,15 @@ public class Agent {
         this.mcpTools = mcpTools(this.tools);
         this.audit = audit == null ? new ToolAudit() : audit;
         this.toolExecutor = new ToolExecutor(tools, this.audit);
+        this.planController = new CliPlanController(new PlannerAgent(llm, this.audit), new PlanRunner(this), messages, this::refreshLastTokenUsage);
+        this.imContext = new ImContext();
         this.context = new ContextManager(maxContextTokens);
         this.maxRounds = maxRounds;
         this.system = Prompt.systemPrompt(systemTools(tools), this.skills);
+    }
+
+    public synchronized String chatCli(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool) throws Exception {
+        return planController.chatCli(userInput, onToken, onTool, this::chat);
     }
 
     // Agent 的主入口
@@ -173,6 +190,30 @@ public class Agent {
         return audit.conversationId();
     }
 
+    public boolean isPlanMode() {
+        return planController.isActive();
+    }
+
+    public void enterPlanMode() {
+        planController.enter();
+    }
+
+    public PlanSession planSession() {
+        return planController.session();
+    }
+
+    public synchronized String createPlan(String task) throws Exception {
+        return planController.createPlan(task);
+    }
+
+    public synchronized String actPlan() throws Exception {
+        return planController.act();
+    }
+
+    public synchronized String cancelPlan() {
+        return planController.cancel();
+    }
+
     private static ExecutorService toolPool() {
         return new ThreadPoolExecutor(
                 8,
@@ -185,8 +226,7 @@ public class Agent {
     }
 
     public synchronized String chatFromIm(String chatId, String userInput) throws Exception {
-        this.currentImChatId = chatId;
-        return chat(userInput, null, null);
+        return imContext.chat(chatId, userInput, input -> chat(input, null, null));
     }
 
     public ImClient imClient() {
@@ -194,16 +234,17 @@ public class Agent {
     }
 
     public String currentImChatId() {
-        return currentImChatId;
+        return imContext.currentChatId();
     }
 
     public void setCurrentImChatId(String chatId) {
-        this.currentImChatId = chatId;
+        imContext.setCurrentChatId(chatId);
     }
 
     // 清空对话历史
     public synchronized void reset() {
         messages.clear();
+        planController.clear();
         audit.reset();
         lastTokenUsage = new TokenUsage(0, 0, 0, 0, context.maxTokens);
     }
@@ -211,6 +252,7 @@ public class Agent {
     public synchronized void loadSession(List<Map<String, Object>> loadedMessages, String conversationId) {
         messages.clear();
         messages.addAll(loadedMessages == null ? List.of() : loadedMessages);
+        planController.clear();
         audit.restoreConversation(conversationId);
         lastTokenUsage = new TokenUsage(0, 0, 0, ContextManager.estimateTokens(messages), context.maxTokens);
     }
@@ -258,5 +300,9 @@ public class Agent {
 
     private static boolean isMcpTool(Tools.Tool tool) {
         return tool.name().startsWith("mcp_");
+    }
+
+    private void refreshLastTokenUsage() {
+        lastTokenUsage = usage(0, 0, 0, ContextManager.estimateTokens(messages));
     }
 }

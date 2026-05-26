@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 // 列出绝对路径目录内容，支持 ignore
+/** LS 工具实现，列出目录下的文件和子目录。 */
 public final class LsTool extends ToolBase {
     @Override
     public String name() { return "LS"; }

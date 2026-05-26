@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 // 替换当前 todo 列表
+/** TodoWrite 工具实现，用模型提供的列表替换当前 todo 状态。 */
 public final class TodoWriteTool extends ToolBase {
     @Override
     public String name() { return "TodoWrite"; }

@@ -9,6 +9,7 @@ import java.util.Map;
 
 import com.yang.skill.Skill;
 
+/** ReadSkill 工具实现，按需读取 Skill 正文和资源索引。 */
 public final class ReadSkillTool extends ToolBase {
     private final List<Skill> skills;
 

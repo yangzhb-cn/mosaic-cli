@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/** 把单个 MCP 工具包装成 Tools.Tool 接口。 */
 final class McpTool implements Tools.Tool {
     private final String name;
     private final String server;

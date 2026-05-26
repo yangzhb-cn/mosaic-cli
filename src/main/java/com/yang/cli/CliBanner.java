@@ -1,8 +1,6 @@
 package com.yang.cli;
 
-/**
- * MisaicCoder 启动 Banner
- */
+/** 输出启动横幅和本次运行加载的能力摘要。 */
 public final class CliBanner {
     private static final String RESET = "\u001B[0m";
     private static final String ACCENT = "\u001B[38;2;0;72;160m";

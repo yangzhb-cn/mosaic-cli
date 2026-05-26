@@ -1,6 +1,6 @@
 package com.yang.tool;
 
-import com.yang.Agent;
+import com.yang.agent.Agent;
 import com.yang.skill.Skill;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/** 注册内置工具、MCP/Skill 扩展工具，并保存工具共享状态。 */
 public final class Tools {
 
     // 用于把 todo 列表转成 JSON 字符串
@@ -25,6 +26,7 @@ public final class Tools {
     private Tools() {
     }
 
+    /** 模型可调用工具的最小接口。 */
     public interface Tool {
         // 工具名
         String name();

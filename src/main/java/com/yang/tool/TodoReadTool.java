@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 // 读取当前 JVM 会话里的 todo 列表
+/** TodoRead 工具实现，读取当前进程内的 todo 列表。 */
 public final class TodoReadTool extends ToolBase {
     @Override
     public String name() { return "TodoRead"; }

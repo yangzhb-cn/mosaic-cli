@@ -1,7 +1,7 @@
 package com.yang.cli;
 
-import com.yang.Agent;
-import com.yang.LlmClient;
+import com.yang.agent.Agent;
+import com.yang.llm.LlmClient;
 import com.yang.session.SessionStore;
 import com.yang.audit.ToolAudit;
 import com.yang.mcp.McpManager;
@@ -28,7 +28,7 @@ class CliCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
-            assertTrue(CliCommands.handle("/mcp", null, null, null, McpManager.empty()));
+            assertTrue(CliRouter.handle("/mcp", null, null, null, McpManager.empty()));
         } finally {
             System.setOut(original);
         }
@@ -42,7 +42,7 @@ class CliCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
-            assertTrue(CliCommands.handle("/last-request", null, new FakeLlm("{\"messages\":[{\"role\":\"system\"}]}"), null));
+            assertTrue(CliRouter.handle("/last-request", null, new FakeLlm("{\"messages\":[{\"role\":\"system\"}]}"), null));
         } finally {
             System.setOut(original);
         }
@@ -56,12 +56,79 @@ class CliCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
-            assertTrue(CliCommands.handle("/last-request", null, new FakeLlm(""), null));
+            assertTrue(CliRouter.handle("/last-request", null, new FakeLlm(""), null));
         } finally {
             System.setOut(original);
         }
 
         assertTrue(out.toString(StandardCharsets.UTF_8).contains("暂无 LLM 请求"));
+    }
+
+    @Test
+    void planCommandWaitsForTaskAndActWithoutPlanReportsEmpty() throws Exception {
+        Agent agent = new Agent(new FakeLlm(""), 1000, null, List.of(), List.of(), new ToolAudit(temp));
+
+        PrintStream original = System.out;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
+            assertTrue(CliRouter.handle("/plan", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+            assertTrue(agent.isPlanMode());
+            assertTrue(CliRouter.handle("/act", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+        } finally {
+            System.setOut(original);
+        }
+
+        String text = out.toString(StandardCharsets.UTF_8);
+        assertTrue(text.contains("请输入要规划的任务"));
+        assertTrue(text.contains("当前没有可执行计划"));
+        assertTrue(agent.isPlanMode());
+    }
+
+    @Test
+    void planWithInlineTaskIsNotSupportedAndCancelKeepsMessagesAndAudit() throws Exception {
+        Agent agent = new Agent(new FakeLlm(""), 1000, null, List.of(), List.of(), new ToolAudit(temp));
+        agent.messages.add(Map.of("role", "user", "content", "hello"));
+        agent.audit().record("Read", true, 1_000_000);
+
+        PrintStream original = System.out;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
+            assertTrue(CliRouter.handle("/plan do it", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+            assertTrue(CliRouter.handle("/plan", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+            assertTrue(CliRouter.handle("/cancel", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+        } finally {
+            System.setOut(original);
+        }
+
+        String text = out.toString(StandardCharsets.UTF_8);
+        assertTrue(text.contains("暂不支持 /plan <task>"));
+        assertTrue(text.contains("已取消当前计划"));
+        assertEquals(1, agent.messages.size());
+        assertFalse(agent.audit().isEmpty());
+        assertFalse(agent.isPlanMode());
+    }
+
+    @Test
+    void resetCommandClearsMessagesAndPlanMode() throws Exception {
+        Agent agent = new Agent(new FakeLlm(""), 1000, null, List.of(), List.of(), new ToolAudit(temp));
+        agent.messages.add(Map.of("role", "user", "content", "hello"));
+        agent.enterPlanMode();
+
+        PrintStream original = System.out;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
+            assertTrue(CliRouter.handle("/reset", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+        } finally {
+            System.setOut(original);
+        }
+
+        assertTrue(agent.messages.isEmpty());
+        assertFalse(agent.isPlanMode());
+        assertTrue(agent.audit().isEmpty());
+        assertTrue(out.toString(StandardCharsets.UTF_8).contains("对话已清空"));
     }
 
     @Test
@@ -75,7 +142,7 @@ class CliCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
-            assertTrue(CliCommands.handle("/audit", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+            assertTrue(CliRouter.handle("/audit", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
         } finally {
             System.setOut(original);
         }
@@ -99,8 +166,8 @@ class CliCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
-            assertTrue(CliCommands.handle("/audit save", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
-            assertTrue(CliCommands.handle("/audit save", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+            assertTrue(CliRouter.handle("/audit save", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+            assertTrue(CliRouter.handle("/audit save", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
         } finally {
             System.setOut(original);
         }
@@ -125,13 +192,14 @@ class CliCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
-            assertTrue(CliCommands.handle("/load session-one", agent, new FakeLlm(""), sessions));
+            assertTrue(CliRouter.handle("/load session-one", agent, new FakeLlm(""), sessions));
         } finally {
             System.setOut(original);
         }
 
         assertEquals(messages, agent.messages);
         assertEquals("conversation_keep", agent.conversationId());
+        assertFalse(agent.isPlanMode());
         assertTrue(agent.audit().isEmpty());
         assertTrue(out.toString(StandardCharsets.UTF_8).contains("会话已加载"));
     }
@@ -145,7 +213,7 @@ class CliCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
-            assertTrue(CliCommands.handle("/session list", null, new FakeLlm(""), sessions));
+            assertTrue(CliRouter.handle("/session list", null, new FakeLlm(""), sessions));
         } finally {
             System.setOut(original);
         }
@@ -167,7 +235,7 @@ class CliCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
-            assertTrue(CliCommands.handle("/session", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+            assertTrue(CliRouter.handle("/session", agent, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
         } finally {
             System.setOut(original);
         }
@@ -191,7 +259,7 @@ class CliCommandsTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try {
             System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
-            assertTrue(CliCommands.handle("/session saved-one", agent, new FakeLlm(""), sessions));
+            assertTrue(CliRouter.handle("/session saved-one", agent, new FakeLlm(""), sessions));
         } finally {
             System.setOut(original);
         }
@@ -204,7 +272,7 @@ class CliCommandsTest {
 
     @Test
     void sessionsCommandIsNoLongerHandled() throws Exception {
-        assertFalse(CliCommands.handle("/sessions", null, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
+        assertFalse(CliRouter.handle("/sessions", null, new FakeLlm(""), new SessionStore(temp.resolve("sessions"))));
     }
 
     private static final class FakeLlm extends LlmClient {

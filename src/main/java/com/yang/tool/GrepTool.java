@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 // 	用正则搜索文件内容，返回 file:line 匹配
+/** Grep 工具实现，在文件内容中搜索正则匹配结果。 */
 public final class GrepTool extends ToolBase {
     private static final Set<String> SKIP = Set.of(".git", "node_modules", "__pycache__", ".venv", "venv", ".tox", "dist", "build", "target");
 

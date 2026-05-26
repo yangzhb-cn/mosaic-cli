@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 // 单点精确字符串替换，校验替换次数
+/** Edit 工具实现，对文件中的唯一文本片段做单次替换。 */
 public final class EditFileTool extends ToolBase {
     @Override
     public String name() { return "Edit"; }

@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 // 抓取指定 URL 的网页内容，返回简化后的文本片段
+/** WebFetch 工具实现，抓取指定 URL 的正文内容。 */
 public final class WebFetchTool extends ToolBase {
     private static final int MAX_CHARS = 10000;
     private final OkHttpClient http = new OkHttpClient.Builder()

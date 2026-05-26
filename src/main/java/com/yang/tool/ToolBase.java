@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 // 减少每个具体工具重复写参数解析、类型转换、路径处理这些通用逻辑
+/** 工具基类，提供常用 JSON Schema 构造方法。 */
 public abstract class ToolBase implements Tools.Tool {
     // 统一生成工具参数 schema
     protected Map<String, Object> params(Map<String, Object> props, String... required) {

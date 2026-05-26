@@ -12,9 +12,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/** 表示 ~/.mosaiccoder/mcp.json 中解析出的 MCP server 配置。 */
 public record McpConfig(boolean configured, List<Server> servers) {
     private static final ObjectMapper JSON = new ObjectMapper();
 
+    /** 表示一个 MCP server 的连接方式、启动命令和认证信息。 */
     public record Server(String name, String type, String command, List<String> args, Map<String, String> env,
                          String url, String endpoint, Map<String, String> headers) {
         public Server(String name, String command, List<String> args, Map<String, String> env) {

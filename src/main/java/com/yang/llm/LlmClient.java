@@ -1,4 +1,4 @@
-package com.yang;
+package com.yang.llm;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 
+/** 封装 OpenAI 兼容 Chat Completions 调用、流式输出和工具调用解析。 */
 public class LlmClient {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final MediaType JSON_TYPE = MediaType.parse("application/json");
@@ -30,20 +31,20 @@ public class LlmClient {
     public int totalCompletionTokens;
     private volatile String lastRequestJson = "";
 
-    // 一次工具调用
+    /** 表示模型返回的一次工具调用请求。 */
     public record ToolCall(String id, String name, Map<String, Object> arguments) {}
 
-    // 工具参数在 SSE 流中拼完整后，立即通知上层可以开始执行。
+    /** 工具参数在 SSE 流中拼完整后，立即通知上层可以开始执行。 */
     public interface ToolReady {
         // index 是本轮响应中的工具顺序；toolCall 是已经能执行的工具调用。
         void accept(int index, ToolCall toolCall);
     }
 
-    // 一次响应结果
+    /** 表示一次 LLM 响应的文本、工具调用和 token 用量。 */
     public record Response(String content, String reasoningContent, List<ToolCall> toolCalls, int promptTokens,
                            int cachedPromptTokens, int completionTokens) {
         // 把 Response 转成一个适合塞回对话历史的消息对象
-        Map<String, Object> message() {
+        public Map<String, Object> message() {
             Map<String, Object> msg = new LinkedHashMap<>();
 
             // assistant 消息
