@@ -89,18 +89,20 @@ class SkillLoaderTest {
         Path skillPath = temp.resolve("skills").resolve("web-access").resolve("SKILL.md");
         Skill skill = new Skill("web-access", "Use web", "Use browser for tests only.", skillPath);
 
-        String prompt = Prompt.systemPrompt(List.of(tool), List.of(skill));
+        String prompt = Prompt.systemPrompt(List.of(tool, mcp), List.of(skill));
         String reminder = Prompt.systemReminder(List.of(mcp), List.of(skill), "User prefers concise answers.");
 
         assertFalse(prompt.contains("# Skills"));
         assertFalse(prompt.contains("Use browser for tests only."));
         assertFalse(prompt.contains("安装 MCP 时"));
         assertTrue(prompt.contains("工作目录:"));
+        assertTrue(prompt.contains("可用内置工具及其 JSON schema 如下"));
         assertTrue(prompt.contains("\"name\" : \"SearchTool\""));
         assertTrue(prompt.contains("\"description\" : \"Search test files\""));
+        assertFalse(prompt.contains("mcp_demo_search"));
+        assertFalse(prompt.contains("Search from MCP"));
         assertTrue(reminder.startsWith("<system-reminder>"));
-        assertTrue(reminder.contains("# 当前环境"));
-        assertTrue(reminder.contains("当前日期时间"));
+        assertTrue(reminder.contains("# 涉及时间"));
         assertTrue(reminder.contains("相对时间"));
         assertTrue(reminder.contains("# 工具选择优先级"));
         assertTrue(reminder.contains("安装 MCP 时"));
@@ -122,7 +124,7 @@ class SkillLoaderTest {
         String reminder = Prompt.systemReminder(List.of(), List.of());
 
         assertTrue(reminder.startsWith("<system-reminder>"));
-        assertTrue(reminder.contains("当前日期时间"));
+        assertTrue(reminder.contains("# 涉及时间"));
         assertTrue(reminder.contains("# 工具选择优先级"));
         assertFalse(reminder.contains("# MCP 工具"));
         assertFalse(reminder.contains("# Skills"));

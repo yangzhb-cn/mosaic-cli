@@ -10,7 +10,7 @@ import com.yang.im.TelegramImClient;
 import com.yang.llm.LlmClient;
 import com.yang.memory.MemoryManager;
 import com.yang.mcp.McpManager;
-import com.yang.session.SessionStore;
+import com.yang.session.SessionManager;
 import com.yang.skill.Skill;
 import com.yang.skill.SkillLoader;
 import com.yang.tool.Tools;
@@ -47,15 +47,17 @@ public class Main {
         List<Skill> skills = SkillLoader.loadDefault();
         MemoryManager memory = MemoryManager.forWorkspace(Path.of("").toAbsolutePath().resolve("workspace"));
         memory.ensureWorkspace();
+        SessionManager sessions = new SessionManager(Path.of("").toAbsolutePath().resolve("data"));
+        SessionManager.Session activeSession = sessions.loadActiveOrCreate(c.model);
 
         System.out.println(mcp.summary());
         System.out.println("Skills: " + skills.size() + " loaded");
-        System.out.println("Memory: workspace/CLAUDE.md");
+        System.out.println("Memory: workspace/Mosaic.md");
+        System.out.println("Session: " + activeSession.id());
 
         // 传入最大窗口，便于上下文压缩的配置策略
-        Agent agent = new Agent(llm, c.maxContextTokens, im, mcp.tools(), skills, null, memory);
-        // 创建会话存储
-        SessionStore sessions = new SessionStore();
+        Agent agent = new Agent(llm, c.maxContextTokens, im, mcp.tools(), skills, null, memory, sessions);
+        agent.loadSession(activeSession.messages(), activeSession.conversationId());
 
         // 启动 Telegram 后台监听
         if (im != null) startTelegram(im, agent, c);

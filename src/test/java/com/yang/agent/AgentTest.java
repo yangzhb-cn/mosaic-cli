@@ -3,6 +3,7 @@ package com.yang.agent;
 import com.yang.audit.ToolAudit;
 import com.yang.llm.LlmClient;
 import com.yang.memory.MemoryManager;
+import com.yang.session.SessionManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -127,6 +128,28 @@ class AgentTest {
     }
 
     @Test
+    void chatAutoSavesActiveSessionAndArchivesExchange(@TempDir Path temp) throws Exception {
+        MemoryManager memory = MemoryManager.forWorkspace(temp.resolve("workspace"));
+        memory.ensureWorkspace();
+        SessionManager sessions = new SessionManager(temp.resolve("data"));
+        SessionManager.Session active = sessions.loadActiveOrCreate("test-model");
+        CapturingFakeLlm llm = new CapturingFakeLlm();
+        Agent agent = new Agent(llm, List.of(), 128000, 1, List.of(), new ToolAudit(temp.resolve("audits")), memory, sessions);
+        agent.loadSession(active.messages(), active.conversationId());
+
+        agent.chat("remember this", null, null);
+
+        SessionManager.Session saved = sessions.load(active.id());
+        assertNotNull(saved);
+        assertEquals("remember this", saved.messages().getFirst().get("content"));
+        assertEquals(agent.conversationId(), saved.conversationId());
+        Path archive = memory.conversationsDir().resolve(java.time.LocalDate.now() + ".md");
+        String archived = Files.readString(archive);
+        assertTrue(archived.contains("remember this"));
+        assertTrue(archived.contains("done"));
+    }
+
+    @Test
     void cliPlanningUsesPlannerAndKeepsPlannerMessagesOutOfMainSession() throws Exception {
         PlanningFakeLlm llm = new PlanningFakeLlm();
         Agent agent = new Agent(llm, List.of(), 128000, 1);
@@ -142,6 +165,23 @@ class AgentTest {
         assertTrue(String.valueOf(llm.lastMessages.getFirst().get("content")).contains("Planner Agent"));
         assertFalse(String.valueOf(agent.messages.getLast().get("content")).contains("Planner Agent"));
         assertTrue(agent.planSession().ready());
+    }
+
+    @Test
+    void cliPlanningAutoSavesActiveSession(@TempDir Path temp) throws Exception {
+        PlanningFakeLlm llm = new PlanningFakeLlm();
+        SessionManager sessions = new SessionManager(temp.resolve("data"));
+        SessionManager.Session active = sessions.loadActiveOrCreate("test-model");
+        Agent agent = new Agent(llm, List.of(), 128000, 1, List.of(), new ToolAudit(temp.resolve("audits")), MemoryManager.disabled(), sessions);
+        agent.loadSession(active.messages(), active.conversationId());
+        agent.enterPlanMode();
+
+        agent.chatCli("plan this", null, null);
+
+        SessionManager.Session saved = sessions.load(active.id());
+        assertNotNull(saved);
+        assertEquals(2, saved.messages().size());
+        assertEquals("plan this", saved.messages().getFirst().get("content"));
     }
 
     @Test

@@ -2,7 +2,6 @@ package com.yang.config;
 
 import com.yang.context.ContextManager;
 import com.yang.llm.LlmClient;
-import com.yang.session.SessionStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -54,29 +53,6 @@ class ConfigSessionContextTest {
         assertEquals("file-token", c.telegramBotToken);
         assertEquals("env-owner", c.telegramOwnerId);
         assertTrue(c.telegramEnabled());
-    }
-
-    @Test
-    void sessionsSaveLoadListAndSanitizeIds() throws Exception {
-        SessionStore store = new SessionStore(temp);
-        List<Map<String, Object>> messages = List.of(Map.of("role", "user", "content", "hello"));
-
-        String id = store.save(messages, "test-model", "../Research Notes!");
-        assertEquals("Research-Notes", id);
-
-        SessionStore.Session loaded = store.load("../Research Notes!");
-        assertNotNull(loaded);
-        assertEquals("test-model", loaded.model());
-        assertEquals(messages, loaded.messages());
-        assertEquals(1, store.list().size());
-    }
-
-    @Test
-    void defaultSessionIdsDoNotCollide() throws Exception {
-        SessionStore store = new SessionStore(temp);
-        String a = store.save(List.of(Map.of("role", "user", "content", "a")), "m", null);
-        String b = store.save(List.of(Map.of("role", "user", "content", "b")), "m", null);
-        assertNotEquals(a, b);
     }
 
     @Test

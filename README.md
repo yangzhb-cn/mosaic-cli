@@ -9,7 +9,8 @@
 - Plan-and-Execute：`/plan` 生成最小 DAG，`/act` 按依赖并行执行。
 - MCP：启动时读取 `~/.mosaiccoder/mcp.json`，加载 stdio / HTTP / SSE MCP tools。
 - Skills：启动时读取 `~/.mosaiccoder/skills/*/SKILL.md`，通过 `ReadSkill` 按需使用。
-- 会话：支持保存、加载、查看当前或已保存会话的用户消息。
+- 会话：项目本地自动持久化多 session，启动自动恢复上次 active session。
+- 长期记忆：读取 `workspace/Mosaic.md` 注入 system-reminder，支持手动提炼更新。
 - 工具审计：`/audit` 查看统计，`/audit save` 保存 JSONL 快照。
 - 可选 IM：配置 Telegram 后可把消息转给 Agent。
 
@@ -132,7 +133,7 @@ java -jar core-cli-0.1.0.jar
 ## 常用命令
 
 ```text
-/reset             清空 messages、audit、当前 plan
+/reset             清空当前 session 的 messages、audit、当前 plan
 /tokens            查看 token 使用情况
 /compact           压缩上下文
 /diff              查看当前会话修改过的文件
@@ -140,16 +141,36 @@ java -jar core-cli-0.1.0.jar
 /last-request      查看上一轮发给 LLM 的完整 JSON 请求
 /audit             查看工具调用统计表格
 /audit save        保存审计快照
-/save              保存当前会话
-/load <id>         恢复 messages 和 conversation_id
-/session           展示当前会话的 user messages
-/session <id>      只读展示指定已保存会话的 user messages
-/session list      展开保存的会话列表
+/session           展示当前 active session 和 user messages
+/session list      展开所有 session，* 标记 active
+/session new [id]  创建并切换到新 session
+/session switch <id> 切换到已有 session
+/memory update     用当前 session 提炼并更新 workspace/Mosaic.md
 /plan              进入规划输入状态
 /act               执行当前计划
 /cancel            取消当前计划
 /exit              退出 CLI
 ```
+
+## Session 与长期记忆
+
+Session 是可切换的运行上下文，自动保存到当前项目目录：
+
+```text
+data/state.json           # active_session_id
+data/sessions/<id>.json   # messages、conversation_id、model、时间戳
+```
+
+启动 CLI 时会自动恢复上次 active session。普通对话、Plan 生成/执行、IM 回复后会自动保存当前 session。`/session new [id]` 会创建新 session；`/session switch <id>` 会切换到已有 session。
+
+长期记忆使用 NanoClaw 风格的项目工作区：
+
+```text
+workspace/Mosaic.md
+workspace/conversations/YYYY-MM-DD.md
+```
+
+`Mosaic.md` 每轮动态读取并注入 `<system-reminder>`，不会写进 session messages。`conversations/` 保存按日期追加的 Markdown 对话归档，便于后续搜索历史。`/memory update` 会调用一次 LLM，把当前 session 中长期有效的信息提炼成新的完整 `Mosaic.md`；结果为空或调用失败时不会覆盖原文件。
 
 ## Plan-and-Execute
 
@@ -185,7 +206,7 @@ Bash        5      4        80.00%        120.8
 ~/.mosaiccoder/audits/audit_<conversation_id>.jsonl
 ```
 
-同一个 session 多次保存会追加多行；不同 session 使用不同 `conversation_id` 文件。
+同一个 session 多次保存会追加多行；不同 session 使用不同 `conversation_id` 文件。切换 session 时会恢复对应 `conversation_id`。
 
 ## 项目结构
 
@@ -199,10 +220,11 @@ src/main/java/com/yang/
   context/               # 上下文估算、清理、压缩
   im/                    # IM 抽象和 Telegram 实现
   llm/                   # OpenAI 兼容 LLM 客户端
-  mcp/                   # MCP 配置、加载和工具包装
-  plan/                  # Planner、DAG 模型、解析、执行
-  prompt/                # 系统提示词和动态 reminder
-  session/               # 会话保存、加载、列表
+	  mcp/                   # MCP 配置、加载和工具包装
+	  memory/                # Mosaic.md、对话归档、长期记忆更新
+	  plan/                  # Planner、DAG 模型、解析、执行
+	  prompt/                # 系统提示词和动态 reminder
+	  session/               # 项目本地自动持久化多 session
   skill/                 # 本地 Skill 加载
   tool/                  # 内置工具、工具执行器和注册
 ```

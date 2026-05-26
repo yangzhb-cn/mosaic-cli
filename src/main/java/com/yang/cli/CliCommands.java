@@ -11,7 +11,7 @@ import org.jline.terminal.TerminalBuilder;
 
 import com.yang.agent.Agent;
 import com.yang.llm.LlmClient;
-import com.yang.session.SessionStore;
+import com.yang.session.SessionManager;
 import com.yang.mcp.McpManager;
 
 import java.util.Locale;
@@ -23,11 +23,11 @@ public final class CliCommands {
     }
 
     // 交互循环
-    public static void repl(Agent agent, LlmClient llm, SessionStore sessions) throws Exception {
+    public static void repl(Agent agent, LlmClient llm, SessionManager sessions) throws Exception {
         repl(agent, llm, sessions, McpManager.empty());
     }
 
-    public static void repl(Agent agent, LlmClient llm, SessionStore sessions, McpManager mcp) throws Exception {
+    public static void repl(Agent agent, LlmClient llm, SessionManager sessions, McpManager mcp) throws Exception {
         System.out.println("💡 输入 / 后按 Tab 查看命令，输入 /exit 退出。");
 
         // 创建终端对象，构建输入读取器，绑定终端，设置命令补全，自动列出匹配的补全项，生成LineReader

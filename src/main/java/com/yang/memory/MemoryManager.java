@@ -1,13 +1,16 @@
 package com.yang.memory;
 
 import com.yang.prompt.Prompt;
+import com.yang.llm.LlmClient;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 
-/** 管理 workspace/CLAUDE.md 长期记忆和 conversations 目录。 */
+/** 管理 workspace/Mosaic.md 长期记忆和 conversations 目录。 */
 public final class MemoryManager {
     private final Path workspaceDir;
     private final boolean enabled;
@@ -30,6 +33,7 @@ public final class MemoryManager {
         Files.createDirectories(workspaceDir);
         Files.createDirectories(conversationsDir());
         Path memory = memoryFile();
+        if (!Files.exists(memory) && Files.exists(legacyMemoryFile())) Files.move(legacyMemoryFile(), memory);
         if (!Files.exists(memory)) Files.writeString(memory, Prompt.memoryTemplate(), StandardCharsets.UTF_8);
     }
 
@@ -43,13 +47,30 @@ public final class MemoryManager {
         }
     }
 
+    public boolean updateMemory(LlmClient llm, List<Map<String, Object>> messages) throws IOException {
+        if (!enabled) return false;
+        String updated = MemoryUpdater.update(llm, readMemory(), messages);
+        if (updated.isBlank()) return false;
+        Files.writeString(memoryFile(), updated + System.lineSeparator(), StandardCharsets.UTF_8);
+        return true;
+    }
+
+    public void archiveExchange(String userMessage, String assistantResponse) {
+        if (!enabled) return;
+        new ConversationArchive(conversationsDir()).archiveExchange(userMessage, assistantResponse);
+    }
+
     public Path memoryFile() {
         if (!enabled) throw new IllegalStateException("Memory is disabled");
-        return workspaceDir.resolve("CLAUDE.md");
+        return workspaceDir.resolve("Mosaic.md");
     }
 
     public Path conversationsDir() {
         if (!enabled) throw new IllegalStateException("Memory is disabled");
         return workspaceDir.resolve("conversations");
+    }
+
+    private Path legacyMemoryFile() {
+        return workspaceDir.resolve("CLAUDE.md");
     }
 }

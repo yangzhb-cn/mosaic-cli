@@ -4,7 +4,7 @@ import com.yang.agent.Agent;
 import com.yang.llm.LlmClient;
 import com.yang.context.ContextManager;
 import com.yang.mcp.McpManager;
-import com.yang.session.SessionStore;
+import com.yang.session.SessionManager;
 import com.yang.tool.Tools;
 import org.jline.reader.Candidate;
 
@@ -26,10 +26,11 @@ public final class CliRouter {
             command("/cancel", "取消当前计划"),
             command("/audit", "查看当前对话工具调用统计"),
             command("/audit save", "保存当前对话工具调用统计"),
-            command("/save", "保存当前会话"),
-            command("/load", "加载保存的会话"),
             command("/session", "查看当前会话用户消息"),
-            command("/session list", "列出保存的会话"),
+            command("/session list", "列出所有会话"),
+            command("/session new", "创建并切换到新会话"),
+            command("/session switch", "切换到已有会话"),
+            command("/memory update", "提炼当前会话并更新长期记忆"),
             command("/exit", "退出"));
 
     private CliRouter() {
@@ -43,11 +44,11 @@ public final class CliRouter {
         return new Candidate(name, name, null, description, null, null, true);
     }
 
-    public static boolean handle(String line, Agent agent, LlmClient llm, SessionStore sessions) throws Exception {
+    public static boolean handle(String line, Agent agent, LlmClient llm, SessionManager sessions) throws Exception {
         return handle(line, agent, llm, sessions, McpManager.empty());
     }
 
-    public static boolean handle(String line, Agent agent, LlmClient llm, SessionStore sessions, McpManager mcp) throws Exception {
+    public static boolean handle(String line, Agent agent, LlmClient llm, SessionManager sessions, McpManager mcp) throws Exception {
         if (line.equals("/reset")) {
             agent.reset();
             System.out.println("🧹 对话已清空。");
@@ -65,6 +66,7 @@ public final class CliRouter {
             int before = ContextManager.estimateTokens(agent.messages);
             boolean changed = agent.context.maybeCompress(agent.messages, llm);
             int after = ContextManager.estimateTokens(agent.messages);
+            if (changed && agent != null) agent.saveSession();
             System.out.println(changed ? "🗜️ 已压缩: " + before + " -> " + after + " tokens" : "✅ 无需压缩 (" + before + " tokens)");
             return true;
         }
@@ -111,53 +113,65 @@ public final class CliRouter {
             System.out.println("💾 审计统计已保存: " + path);
             return true;
         }
-        if (line.equals("/save")) {
-            String id = sessions.save(agent.messages, llm.model, null, agent.conversationId());
-            System.out.println("💾 会话已保存: " + id);
+        if (line.equals("/session list")) {
+            printSessionList(sessions);
             return true;
         }
-        if (line.equals("/load")) {
-            System.out.println("用法: /load <session_id>");
+        if (line.equals("/session new") || line.startsWith("/session new ")) {
+            String id = line.length() == "/session new".length() ? null : line.substring("/session new ".length()).strip();
+            try {
+                SessionManager.Session session = sessions.create(id, llm.model);
+                agent.loadSession(session.messages(), session.conversationId());
+                System.out.println("🆕 已创建并切换到会话: " + session.id());
+            } catch (IllegalArgumentException e) {
+                System.out.println("错误: " + e.getMessage());
+            }
             return true;
         }
-        if (line.startsWith("/load ")) {
-            String id = line.substring("/load ".length()).strip();
-            SessionStore.Session session = sessions.load(id);
+        if (line.equals("/session switch")) {
+            System.out.println("用法: /session switch <session_id>");
+            return true;
+        }
+        if (line.startsWith("/session switch ")) {
+            String id = line.substring("/session switch ".length()).strip();
+            SessionManager.Session session = sessions.switchTo(id);
             if (session == null) {
                 System.out.println("📭 未找到会话: " + id);
                 return true;
             }
             agent.loadSession(session.messages(), session.conversationId());
-            System.out.println("📂 会话已加载: " + id);
+            System.out.println("📂 已切换到会话: " + session.id());
             if (llm != null && session.model() != null && !session.model().equals(llm.model)) {
                 System.out.println("⚠️ 保存时模型是 " + session.model() + "，当前模型是 " + llm.model + "。");
             }
             return true;
         }
-        if (line.equals("/session list")) {
-            printSessionList(sessions);
-            return true;
-        }
         if (line.equals("/session")) {
+            String id = agent == null ? "" : agent.sessionId();
+            if (id != null && !id.isBlank()) System.out.println("Session: " + id);
             printUserMessages(agent.messages);
             return true;
         }
         if (line.startsWith("/session ")) {
-            String id = line.substring("/session ".length()).strip();
-            SessionStore.Session session = sessions.load(id);
-            if (session == null) {
-                System.out.println("📭 未找到会话: " + id);
-                return true;
-            }
-            printUserMessages(session.messages());
+            System.out.println("用法: /session、/session list、/session new [id]、/session switch <id>");
+            return true;
+        }
+        if (line.equals("/memory update")) {
+            System.out.println(agent.updateMemory());
             return true;
         }
         return false;
     }
 
-    private static void printSessionList(SessionStore sessions) throws Exception {
-        for (SessionStore.SessionInfo s : sessions.list()) {
-            System.out.println("  🗂️ " + s.id() + " (" + s.model() + ", " + s.savedAt() + ") " + s.preview());
+    private static void printSessionList(SessionManager sessions) throws Exception {
+        List<SessionManager.SessionInfo> all = sessions.list();
+        if (all.isEmpty()) {
+            System.out.println("📭 暂无会话。");
+            return;
+        }
+        for (SessionManager.SessionInfo s : all) {
+            String marker = s.active() ? "* " : "  ";
+            System.out.println(marker + "🗂️ " + s.id() + " (" + s.model() + ", " + s.updatedAt() + ") " + s.preview());
         }
     }
 

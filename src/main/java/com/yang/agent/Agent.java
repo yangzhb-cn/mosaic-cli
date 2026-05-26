@@ -11,6 +11,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.io.IOException;
 
 import com.yang.audit.ToolAudit;
 import com.yang.cli.CliPlanController;
@@ -23,6 +24,7 @@ import com.yang.plan.PlanRunner;
 import com.yang.plan.PlanSession;
 import com.yang.plan.PlannerAgent;
 import com.yang.prompt.Prompt;
+import com.yang.session.SessionManager;
 import com.yang.skill.Skill;
 import com.yang.tool.ToolExecutor;
 import com.yang.tool.Tools;
@@ -44,6 +46,7 @@ public class Agent {
     private final CliPlanController planController;
     private final ImContext imContext;
     private final MemoryManager memory;
+    private final SessionManager sessionManager;
     private TokenUsage lastTokenUsage = new TokenUsage(0, 0, 0, 0, 0);
 
     /** 记录最近一次回复的 token 用量和上下文占用比例。 */
@@ -72,18 +75,23 @@ public class Agent {
     }
 
     public Agent(LlmClient llm, int maxContextTokens, ImClient im, List<Tools.Tool> extraTools, List<Skill> skills, ToolAudit audit, MemoryManager memory) {
+        this(llm, maxContextTokens, im, extraTools, skills, audit, memory, SessionManager.disabled());
+    }
+
+    public Agent(LlmClient llm, int maxContextTokens, ImClient im, List<Tools.Tool> extraTools, List<Skill> skills, ToolAudit audit, MemoryManager memory, SessionManager sessionManager) {
         this.llm = llm;
         this.im = im;
         this.skills = List.copyOf(skills);
         this.audit = audit == null ? new ToolAudit() : audit;
         this.memory = memory == null ? MemoryManager.disabled() : memory;
+        this.sessionManager = sessionManager == null ? SessionManager.disabled() : sessionManager;
         this.context = new ContextManager(maxContextTokens);
         // 最多允许模型-工具循环多少轮
         this.maxRounds = 50;
         this.tools = Tools.all(this, extraTools, this.skills);
         this.mcpTools = mcpTools(this.tools);
         this.toolExecutor = new ToolExecutor(tools, this.audit);
-        this.planController = new CliPlanController(new PlannerAgent(llm, this.audit), new PlanRunner(this), messages, this::refreshLastTokenUsage);
+        this.planController = new CliPlanController(new PlannerAgent(llm, this.audit), new PlanRunner(this), messages, this::messagesChanged);
         this.imContext = new ImContext();
         this.system = Prompt.systemPrompt(systemTools(tools), this.skills);
     }
@@ -102,6 +110,10 @@ public class Agent {
     }
 
     Agent(LlmClient llm, List<Tools.Tool> tools, int maxContextTokens, int maxRounds, List<Skill> skills, ToolAudit audit, MemoryManager memory) {
+        this(llm, tools, maxContextTokens, maxRounds, skills, audit, memory, SessionManager.disabled());
+    }
+
+    Agent(LlmClient llm, List<Tools.Tool> tools, int maxContextTokens, int maxRounds, List<Skill> skills, ToolAudit audit, MemoryManager memory, SessionManager sessionManager) {
         this.llm = llm;
         this.im = null;
         this.skills = List.copyOf(skills);
@@ -109,8 +121,9 @@ public class Agent {
         this.mcpTools = mcpTools(this.tools);
         this.audit = audit == null ? new ToolAudit() : audit;
         this.memory = memory == null ? MemoryManager.disabled() : memory;
+        this.sessionManager = sessionManager == null ? SessionManager.disabled() : sessionManager;
         this.toolExecutor = new ToolExecutor(tools, this.audit);
-        this.planController = new CliPlanController(new PlannerAgent(llm, this.audit), new PlanRunner(this), messages, this::refreshLastTokenUsage);
+        this.planController = new CliPlanController(new PlannerAgent(llm, this.audit), new PlanRunner(this), messages, this::messagesChanged);
         this.imContext = new ImContext();
         this.context = new ContextManager(maxContextTokens);
         this.maxRounds = maxRounds;
@@ -158,6 +171,8 @@ public class Agent {
                     // 把模型回复加入消息历史。
                     messages.add(r.message());
                     lastTokenUsage = usage(promptTokens, cachedPromptTokens, completionTokens, contextTokens);
+                    memory.archiveExchange(userInput, r.content());
+                    saveSession();
                     // 返回模型的最终内容，结束 chat
                     return r.content();
                 }
@@ -182,6 +197,7 @@ public class Agent {
             context.maybeCompress(messages, llm);
         }
         lastTokenUsage = usage(promptTokens, cachedPromptTokens, completionTokens, contextTokens);
+        saveSession();
         return "(已达到最大工具调用轮数)";
     }
 
@@ -200,6 +216,10 @@ public class Agent {
 
     public String conversationId() {
         return audit.conversationId();
+    }
+
+    public String sessionId() {
+        return sessionManager.activeId();
     }
 
     public boolean isPlanMode() {
@@ -259,6 +279,7 @@ public class Agent {
         planController.clear();
         audit.reset();
         lastTokenUsage = new TokenUsage(0, 0, 0, 0, context.maxTokens);
+        saveSessionQuietly();
     }
 
     public synchronized void loadSession(List<Map<String, Object>> loadedMessages, String conversationId) {
@@ -267,6 +288,14 @@ public class Agent {
         planController.clear();
         audit.restoreConversation(conversationId);
         lastTokenUsage = new TokenUsage(0, 0, 0, ContextManager.estimateTokens(messages), context.maxTokens);
+    }
+
+    public synchronized void saveSession() throws IOException {
+        sessionManager.saveActive(messages, llm.model, audit.conversationId());
+    }
+
+    public synchronized String updateMemory() throws IOException {
+        return memory.updateMemory(llm, messages) ? "长期记忆已更新: workspace/Mosaic.md" : "长期记忆未更新。";
     }
 
     // 运行一个子 Agent 来处理某个任务
@@ -314,7 +343,15 @@ public class Agent {
         return tool.name().startsWith("mcp_");
     }
 
-    private void refreshLastTokenUsage() {
+    private void messagesChanged() {
         lastTokenUsage = usage(0, 0, 0, ContextManager.estimateTokens(messages));
+        saveSessionQuietly();
+    }
+
+    private void saveSessionQuietly() {
+        try {
+            saveSession();
+        } catch (IOException ignored) {
+        }
     }
 }

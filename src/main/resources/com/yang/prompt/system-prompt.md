@@ -154,7 +154,7 @@ assistant: Clients are marked as failed in the `connectToServer` function in src
 仔细分析请求中的描述性词语，它们可能表示应包含的必需参数值，即使没有显式加引号。
 MCP、Skills 和工具选择策略会通过 <system-reminder> 动态注入；它们不是用户输入，但相关时必须遵守。
 
-可用工具及其 JSON schema 如下：
+可用内置工具及其 JSON schema 如下：
 
 ```json
 {{tools_json}}

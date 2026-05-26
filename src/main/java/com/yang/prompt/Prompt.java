@@ -23,6 +23,7 @@ public class Prompt {
     private static final String SKILLS_REMINDER = load("skills-reminder.md");
     private static final String MEMORY_REMINDER = load("memory-reminder.md");
     private static final String MEMORY_TEMPLATE = load("memory-template.md");
+    private static final String MEMORY_UPDATE_PROMPT = load("memory-update-prompt.md");
 
     public static String systemPrompt(List<Tools.Tool> tools) {
         return systemPrompt(tools, List.of());
@@ -65,6 +66,10 @@ public class Prompt {
         return MEMORY_TEMPLATE;
     }
 
+    public static String memoryUpdatePrompt() {
+        return MEMORY_UPDATE_PROMPT;
+    }
+
     private static String mcpToolsSection(List<Tools.Tool> mcpTools) {
         if (!mcpTools.isEmpty()) {
             StringBuilder tools = new StringBuilder();
@@ -95,10 +100,17 @@ public class Prompt {
 
     private static String toolsJson(List<Tools.Tool> tools) {
         try {
-            return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(tools.stream().map(Tools.Tool::schema).toList());
+            return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(tools.stream()
+                    .filter(t -> !isMcpTool(t))
+                    .map(Tools.Tool::schema)
+                    .toList());
         } catch (JsonProcessingException e) {
             return "[]";
         }
+    }
+
+    private static boolean isMcpTool(Tools.Tool tool) {
+        return tool.name().startsWith("mcp_");
     }
 
     private static String load(String name) {
