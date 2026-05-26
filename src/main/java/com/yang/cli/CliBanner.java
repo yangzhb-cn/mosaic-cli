@@ -24,7 +24,7 @@ public final class CliBanner {
 
     private static void printColorBanner(String meta, int width) {
         System.out.println();
-        System.out.println(ACCENT + "╭─ " + TITLE + "MosaicCoder CLI" + RESET);
+        System.out.println(ACCENT + "╭─ " + TITLE + "😜Hi~ MosaicCoder" + RESET);
         System.out.println(ACCENT + "│  " + MUTED + meta + RESET);
         System.out.println(ACCENT + "╰" + "─".repeat(width) + RESET);
         System.out.println();
