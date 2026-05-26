@@ -1,4 +1,4 @@
-# Core CLI Java
+# Mosaic CLI Java
 
 一个简洁的 Java Agent CLI 项目，支持命令行交互、工具调用、子 Agent、可选 Telegram IM、Tavily 联网搜索、最简 MCP 和本地 Skills。
 
@@ -10,6 +10,7 @@
 - MCP：启动时读取 `~/.mosaiccoder/mcp.json`，加载 stdio / HTTP / SSE MCP server 的 tools。
 - Skills：启动时读取 `~/.mosaiccoder/skills/*/SKILL.md`，注入系统提示词。
 - 会话上下文：支持会话存储和上下文压缩。
+- 工具审计：支持 `/audit` 查看当前对话工具调用统计，`/audit save` 追加保存审计快照。
 - 可选 IM：配置 Telegram 后可把消息转给 Agent。
 
 ## 环境要求
@@ -111,6 +112,29 @@ mosaiccoder() {
 /mcp
 ```
 
+查看当前对话工具调用统计：
+
+```text
+/audit
+```
+
+输出列包括 `Tool`、`Calls`、`Success`、`Success_Rate`、`Avg_ms`。保存当前统计快照：
+
+```text
+/audit save
+```
+
+审计快照会按当前 `conversation_id` 追加到 `~/.mosaiccoder/audits/audit_<conversation_id>.jsonl`，同一个 session 多次保存会追加多行。
+
+保存和恢复会话：
+
+```text
+/save
+/load <session_id>
+```
+
+`/save` 会保存 `messages` 和 `conversation_id`；`/load <session_id>` 会恢复这两项，但不会恢复历史 audit 统计。
+
 ## 项目结构
 
 ```text
@@ -120,9 +144,10 @@ src/main/java/com/coder/
   LlmClient.java         # LLM HTTP 客户端
   Config.java            # 环境变量和 .env 配置读取
   Prompt.java            # 系统提示词
+  audit/                 # 工具调用审计统计和 JSONL 保存
   cli/                   # 命令行交互
   im/                    # Telegram IM 接入
-  mcp/                   # stdio MCP 加载和工具包装
+  mcp/                   # MCP 加载和工具包装
   skill/                 # 本地 Skill 加载
   tools/                 # 工具实现和注册
 ```
