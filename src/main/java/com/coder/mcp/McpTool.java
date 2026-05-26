@@ -1,6 +1,6 @@
 package com.coder.mcp;
 
-import com.coder.tools.Tools;
+import com.coder.tool.Tools;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
@@ -47,7 +47,7 @@ final class McpTool implements Tools.Tool {
         if (schema.additionalProperties() != null) out.put("additionalProperties", schema.additionalProperties());
         if (schema.defs() != null) out.put("$defs", schema.defs());
         if (schema.definitions() != null) out.put("definitions", schema.definitions());
-        return out;
+        return McpSchemaSimplifier.simplify(out);
     }
 
     @Override

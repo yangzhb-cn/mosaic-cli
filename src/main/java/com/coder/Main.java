@@ -8,7 +8,7 @@ import com.coder.im.TelegramImClient;
 import com.coder.mcp.McpManager;
 import com.coder.skill.Skill;
 import com.coder.skill.SkillLoader;
-import com.coder.tools.Tools;
+import com.coder.tool.Tools;
 
 import java.util.List;
 import java.util.Set;

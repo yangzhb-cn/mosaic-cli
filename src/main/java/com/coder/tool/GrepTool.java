@@ -1,4 +1,4 @@
-package com.coder.tools;
+package com.coder.tool;
 
 import java.nio.file.FileSystems;
 import java.nio.file.Files;

@@ -115,4 +115,38 @@ class McpConfigTest {
         assertTrue(manager.summary().contains("bad-type: 不支持的 MCP type: websocket"));
         assertTrue(manager.details().contains("不支持的 MCP type: websocket"));
     }
+
+    @Test
+    void simplifiesAdvancedMcpJsonSchemaForLlmTools() {
+        Map<String, Object> schema = Map.of(
+                "type", "object",
+                "properties", Map.of(
+                        "target", Map.of("$ref", "#/$defs/Target"),
+                        "mode", Map.of("anyOf", List.of(
+                                Map.of("type", "null"),
+                                Map.of("type", "string", "enum", List.of("fast", "safe"))
+                        )),
+                        "count", Map.of("oneOf", List.of(Map.of("type", "integer")))
+                ),
+                "required", List.of("target", "missing"),
+                "$defs", Map.of("Target", Map.of(
+                        "type", "object",
+                        "properties", Map.of("path", Map.of("type", "string")),
+                        "required", List.of("path")
+                ))
+        );
+
+        Map<String, Object> out = McpSchemaSimplifier.simplify(schema);
+        Map<?, ?> props = (Map<?, ?>) out.get("properties");
+        Map<?, ?> target = (Map<?, ?>) props.get("target");
+        Map<?, ?> targetProps = (Map<?, ?>) target.get("properties");
+        Map<?, ?> mode = (Map<?, ?>) props.get("mode");
+
+        assertFalse(out.containsKey("$defs"));
+        assertEquals("object", target.get("type"));
+        assertEquals("string", ((Map<?, ?>) targetProps.get("path")).get("type"));
+        assertEquals(List.of("target"), out.get("required"));
+        assertEquals("string", mode.get("type"));
+        assertEquals(List.of("fast", "safe"), mode.get("enum"));
+    }
 }

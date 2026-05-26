@@ -5,8 +5,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.coder.im.ImClient;
 import com.coder.im.ImMessage;
-import com.coder.tools.Tools;
-import com.coder.tools.WebSearchTool;
+import com.coder.skill.Skill;
+import com.coder.tool.Tools;
+import com.coder.tool.WebSearchTool;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,6 +44,28 @@ class ToolsTest {
 
         assertNotNull(Tools.get(tools, "mcp_demo_echo"));
         assertEquals(14, tools.size());
+    }
+
+    @Test
+    void readSkillToolLoadsSkillContentAndResourceIndexOnDemand() throws Exception {
+        Path dir = temp.resolve("skills/web-access");
+        Files.createDirectories(dir.resolve("scripts"));
+        Files.createDirectories(dir.resolve("references"));
+        Files.createDirectories(dir.resolve("assets"));
+        Files.writeString(dir.resolve("scripts/fetch.py"), "print('ok')");
+        Files.writeString(dir.resolve("references/api.md"), "# API");
+        Files.writeString(dir.resolve("assets/template.txt"), "template");
+        Skill skill = new Skill("web-access", "Use web", "Skill body", dir.resolve("SKILL.md"));
+        List<Tools.Tool> tools = Tools.all(null, List.of(), List.of(skill));
+        Tools.Tool readSkill = Tools.get(tools, "ReadSkill");
+        String content = readSkill.execute(Map.of("name", "web-access"));
+
+        assertNotNull(readSkill);
+        assertTrue(content.contains("Skill body"));
+        assertTrue(content.contains("[脚本] scripts/fetch.py"));
+        assertTrue(content.contains("[参考] references/api.md"));
+        assertTrue(content.contains("[资源] assets/template.txt"));
+        assertTrue(readSkill.execute(Map.of("name", "missing")).contains("可用 Skill: web-access"));
     }
 
     @Test

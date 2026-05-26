@@ -1,4 +1,4 @@
-package com.coder.tools;
+package com.coder.tool;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;

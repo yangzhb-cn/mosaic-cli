@@ -5,14 +5,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class SkillLoader {
     private SkillLoader() {
     }
 
     public static List<Skill> loadDefault() {
-        return load(Path.of(System.getProperty("user.home"), ".mosaiccoder", "skills"));
+        return load(List.of(
+                Path.of(System.getProperty("user.home"), ".mosaiccoder", "skills"),
+                Path.of("").toAbsolutePath().resolve(".mosaiccoder").resolve("skills")
+        ));
+    }
+
+    public static List<Skill> load(List<Path> dirs) {
+        Map<String, Skill> skills = new LinkedHashMap<>();
+        for (Path dir : dirs) {
+            for (Skill skill : load(dir)) skills.put(skill.name(), skill);
+        }
+        return skills.values().stream().sorted(Comparator.comparing(Skill::name)).toList();
     }
 
     public static List<Skill> load(Path dir) {
@@ -21,7 +34,7 @@ public final class SkillLoader {
         try (var stream = Files.list(dir)) {
             for (Path child : stream.filter(Files::isDirectory).sorted().toList()) {
                 Path file = child.resolve("SKILL.md");
-                if (Files.isRegularFile(file)) skills.add(parse(child.getFileName().toString(), Files.readString(file)));
+                if (Files.isRegularFile(file)) skills.add(parse(child.getFileName().toString(), Files.readString(file), file));
             }
         } catch (IOException ignored) {
         }
@@ -29,6 +42,10 @@ public final class SkillLoader {
     }
 
     static Skill parse(String fallbackName, String text) {
+        return parse(fallbackName, text, null);
+    }
+
+    static Skill parse(String fallbackName, String text, Path path) {
         String name = fallbackName;
         String description = "";
         String content = text.strip();
@@ -47,7 +64,7 @@ public final class SkillLoader {
                 }
             }
         }
-        return new Skill(name, description, content);
+        return new Skill(name, description, content, path);
     }
 
     private static String unquote(String value) {

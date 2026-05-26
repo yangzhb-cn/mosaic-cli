@@ -4,16 +4,19 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import com.coder.im.ImClient;
 import com.coder.prompt.Prompt;
 import com.coder.skill.Skill;
-import com.coder.tools.ToolExecutor;
-import com.coder.tools.Tools;
+import com.coder.tool.ToolExecutor;
+import com.coder.tool.Tools;
 
 public class Agent {
     final LlmClient llm;
@@ -45,7 +48,7 @@ public class Agent {
         this.context = new ContextManager(maxContextTokens);
         // 最多允许模型-工具循环多少轮
         this.maxRounds = 50;
-        this.tools = Tools.all(this, extraTools);
+        this.tools = Tools.all(this, extraTools, this.skills);
         this.mcpTools = mcpTools(this.tools);
         this.toolExecutor = new ToolExecutor(tools);
         this.system = Prompt.systemPrompt(systemTools(tools), this.skills);
@@ -82,7 +85,7 @@ public class Agent {
             Map<Integer, Future<String>> futures = new LinkedHashMap<>();
 
             // 本轮工具执行共用一个固定线程池，最多并行 8 个工具。
-            try (var pool = Executors.newFixedThreadPool(8)) {
+            try (var pool = toolPool()) {
                 // 4. 调用大模型: 完整消息，包括 system prompt;工具 schema 列表;把流式返回的文本不断追加到 text
                 LlmClient.Response r = llm.chat(fullMessages(), toolExecutor.schemas(), token -> {
                             text.append(token);
@@ -120,6 +123,17 @@ public class Agent {
             context.maybeCompress(messages, llm);
         }
         return "(已达到最大工具调用轮数)";
+    }
+
+    private static ExecutorService toolPool() {
+        return new ThreadPoolExecutor(
+                8,
+                8,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(64),
+                new ThreadPoolExecutor.CallerRunsPolicy()
+        );
     }
 
     public synchronized String chatFromIm(String chatId, String userInput) throws Exception {

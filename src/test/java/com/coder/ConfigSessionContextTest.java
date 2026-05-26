@@ -33,6 +33,7 @@ class ConfigSessionContextTest {
     void configLoadsDotenvAndEnvWins() throws Exception {
         Files.writeString(temp.resolve(".env"), """
                 DEEPSEEK_API_KEY=file-key
+                DEEPSEEK_MODEL=file-model
                 DEEPSEEK_BASE_URL=https://file.example/v1
                 TELEGRAM_BOT_TOKEN=file-token
                 OWNER_ID=file-owner
@@ -40,9 +41,10 @@ class ConfigSessionContextTest {
 
         Config c = Config.from(Map.of(
                 "DEEPSEEK_API_KEY", "env-key",
+                "DEEPSEEK_MODEL", "env-model",
                 "OWNER_ID", "env-owner"
         ), temp);
-        assertEquals("deepseek-v4-flash", c.model);
+        assertEquals("env-model", c.model);
         assertEquals("env-key", c.apiKey);
         assertEquals("https://file.example/v1", c.baseUrl);
         assertEquals("telegram", c.im);

@@ -1,6 +1,6 @@
 package com.coder.mcp;
 
-import com.coder.tools.Tools;
+import com.coder.tool.Tools;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
@@ -16,6 +16,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public final class McpManager implements AutoCloseable {
     private static final io.modelcontextprotocol.json.McpJsonMapper JSON_MAPPER = new JacksonMcpJsonMapperSupplier().get();
@@ -26,6 +31,12 @@ public final class McpManager implements AutoCloseable {
     private final List<McpSyncClient> clients;
 
     public record ServerStatus(String name, boolean loaded, int toolCount, String error) {
+    }
+
+    private record ServerLoad(McpConfig.Server server, ServerStatus status, McpSyncClient client, List<io.modelcontextprotocol.spec.McpSchema.Tool> tools) {
+    }
+
+    private record ServerTask(McpConfig.Server server, Future<ServerLoad> future) {
     }
 
     private McpManager(boolean configured, List<ServerStatus> servers, List<Tools.Tool> tools, List<McpSyncClient> clients) {
@@ -49,41 +60,71 @@ public final class McpManager implements AutoCloseable {
         List<ServerStatus> statuses = new ArrayList<>();
         List<Tools.Tool> tools = new ArrayList<>();
         List<McpSyncClient> clients = new ArrayList<>();
-        for (McpConfig.Server server : config.servers()) {
-            String transportType = type(server);
-            if (!supported(transportType)) {
-                statuses.add(new ServerStatus(server.name(), false, 0, "不支持的 MCP type: " + transportType));
-                continue;
-            }
-            if ("stdio".equals(transportType) && server.command().isBlank()) {
-                statuses.add(new ServerStatus(server.name(), false, 0, "command 为空"));
-                continue;
-            }
-            if (("http".equals(transportType) || "streamable-http".equals(transportType) || "sse".equals(transportType)) && server.url().isBlank()) {
-                statuses.add(new ServerStatus(server.name(), false, 0, transportType + " url 为空"));
-                continue;
-            }
-            McpSyncClient client = null;
-            try {
-                McpClientTransport transport = transport(server, transportType);
-                client = McpClient.sync(transport)
-                        .clientInfo(new Implementation("mosaiccoder", "0.1.0"))
-                        .initializationTimeout(Duration.ofSeconds(10))
-                        .requestTimeout(Duration.ofSeconds(60))
-                        .build();
-                client.initialize();
-                List<io.modelcontextprotocol.spec.McpSchema.Tool> listed = client.listTools().tools();
-                for (io.modelcontextprotocol.spec.McpSchema.Tool tool : listed) {
-                    tools.add(new McpTool(unique(toolName(server.name(), tool.name()), names), server.name(), client, tool));
+        try (var pool = serverPool(config.servers().size())) {
+            List<ServerTask> tasks = new ArrayList<>();
+            for (McpConfig.Server server : config.servers()) tasks.add(new ServerTask(server, pool.submit(() -> loadServer(server))));
+            for (ServerTask task : tasks) {
+                ServerLoad loaded;
+                try {
+                    loaded = task.future().get();
+                } catch (Exception e) {
+                    statuses.add(new ServerStatus(task.server().name(), false, 0, e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+                    continue;
                 }
-                clients.add(client);
-                statuses.add(new ServerStatus(server.name(), true, listed.size(), ""));
-            } catch (Exception e) {
-                if (client != null) client.closeGracefully();
-                statuses.add(new ServerStatus(server.name(), false, 0, e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+                statuses.add(loaded.status());
+                if (!loaded.status().loaded()) continue;
+                for (io.modelcontextprotocol.spec.McpSchema.Tool tool : loaded.tools()) {
+                    tools.add(new McpTool(unique(toolName(loaded.server().name(), tool.name()), names), loaded.server().name(), loaded.client(), tool));
+                }
+                clients.add(loaded.client());
             }
         }
         return new McpManager(true, statuses, tools, clients);
+    }
+
+    private static ExecutorService serverPool(int serverCount) {
+        int threads = Math.max(1, Math.min(8, serverCount));
+        int queueSize = Math.max(1, serverCount);
+        return new ThreadPoolExecutor(
+                threads,
+                threads,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queueSize),
+                new ThreadPoolExecutor.CallerRunsPolicy()
+        );
+    }
+
+    private static ServerLoad loadServer(McpConfig.Server server) {
+        String transportType = type(server);
+        if (!supported(transportType)) {
+            return failed(server, "不支持的 MCP type: " + transportType);
+        }
+        if ("stdio".equals(transportType) && server.command().isBlank()) {
+            return failed(server, "command 为空");
+        }
+        if (("http".equals(transportType) || "streamable-http".equals(transportType) || "sse".equals(transportType)) && server.url().isBlank()) {
+            return failed(server, transportType + " url 为空");
+        }
+        McpSyncClient client = null;
+        try {
+            McpClientTransport transport = transport(server, transportType);
+            client = McpClient.sync(transport)
+                    .clientInfo(new Implementation("mosaiccoder", "0.1.0"))
+                    .initializationTimeout(Duration.ofSeconds(10))
+                    .requestTimeout(Duration.ofSeconds(60))
+                    .build();
+            client.initialize();
+            List<io.modelcontextprotocol.spec.McpSchema.Tool> listed = client.listTools().tools();
+            return new ServerLoad(server, new ServerStatus(server.name(), true, listed.size(), ""), client, listed);
+        } catch (Exception e) {
+            if (client != null) client.closeGracefully();
+            return failed(server, e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
+        }
+    }
+
+    private static ServerLoad failed(McpConfig.Server server, String error) {
+        return new ServerLoad(server, new ServerStatus(server.name(), false, 0, error), null, List.of());
     }
 
     private static McpClientTransport transport(McpConfig.Server server, String type) {

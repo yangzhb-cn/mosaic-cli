@@ -1,6 +1,7 @@
-package com.coder.tools;
+package com.coder.tool;
 
 import com.coder.Agent;
+import com.coder.skill.Skill;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -50,6 +51,10 @@ public final class Tools {
     }
 
     public static List<Tool> all(Agent parent, List<Tool> extraTools) {
+        return all(parent, extraTools, List.of());
+    }
+
+    public static List<Tool> all(Agent parent, List<Tool> extraTools, List<Skill> skills) {
         List<Tool> tools = new ArrayList<>(List.of(
                 new BashTool(),
                 new GlobTool(),
@@ -66,6 +71,7 @@ public final class Tools {
                 new AgentTool(parent)
         ));
         if (parent != null && parent.imClient() != null) tools.add(new SendMessageTool(parent));
+        if (!skills.isEmpty()) tools.add(new ReadSkillTool(skills));
         tools.addAll(extraTools);
         return List.copyOf(tools);
     }

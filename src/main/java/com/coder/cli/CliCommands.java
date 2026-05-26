@@ -15,7 +15,7 @@ import com.coder.ContextManager;
 import com.coder.LlmClient;
 import com.coder.SessionStore;
 import com.coder.mcp.McpManager;
-import com.coder.tools.Tools;
+import com.coder.tool.Tools;
 
 import java.util.List;
 import java.util.Map;
@@ -177,7 +177,7 @@ public final class CliCommands {
             System.out.print(out);
 
             // agent调用了工具就回调，打印工具名和参数摘要
-        }, (name, args) -> System.out.println("🔧 " + name + "(" + brief(args) + ")"));
+        }, (name, args) -> System.out.println("\n🔧 " + name + "(" + brief(args) + ")"));
 
         // 如果已经流式了，就打印空行，否则response兜底
         System.out.println(streamed.isEmpty() ? "🤖 Agent: " + stripLeadingBlank(response) : "");

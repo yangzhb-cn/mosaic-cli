@@ -24,6 +24,7 @@
 常用变量：
 
 ```env
+DEEPSEEK_MODEL=deepseek-v4-flash
 DEEPSEEK_API_KEY=your_api_key
 DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
 TAVILY_API_KEY=your_tavily_key
@@ -85,6 +86,23 @@ mvn -DskipTests package
 
 ```bash
 java -jar target/core-cli-0.1.0.jar
+```
+
+从其他文件夹使用：
+
+```bash
+cd /path/to/your/project
+java -jar /Users/yangzhibin/projects/i/agent/core-cli-java/target/core-cli-0.1.0.jar
+```
+
+MosaicCoder 会把你执行 `java -jar` 时所在的目录作为工作目录。也就是说，如果要让它处理其他项目，不需要进入 `core-cli-java`，只要在目标项目目录里启动这个 jar。
+
+也可以加一个 shell 函数，方便在任意目录启动：
+
+```bash
+mosaiccoder() {
+  java -jar /Users/yangzhibin/projects/i/agent/core-cli-java/target/core-cli-0.1.0.jar
+}
 ```
 
 查看 MCP 状态：

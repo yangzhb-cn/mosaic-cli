@@ -3,7 +3,7 @@ package com.coder;
 import org.junit.jupiter.api.Test;
 
 import com.coder.skill.Skill;
-import com.coder.tools.Tools;
+import com.coder.tool.Tools;
 
 import java.io.IOException;
 import java.util.List;
@@ -66,7 +66,8 @@ class AgentTest {
         assertEquals("done", response);
         String system = String.valueOf(llm.lastMessages.getFirst().get("content"));
         String sent = String.valueOf(llm.lastMessages.getLast().get("content"));
-        assertTrue(system.contains("- Normal: Normal tool"));
+        assertTrue(system.contains("\"name\" : \"Normal\""));
+        assertTrue(system.contains("\"description\" : \"Normal tool\""));
         assertFalse(system.contains("mcp_demo_echo"));
         assertTrue(sent.startsWith("<system-reminder>"));
         assertFalse(sent.contains("Normal tool"));

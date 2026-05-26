@@ -34,6 +34,7 @@ public class Config {
     static Config from(Map<String, String> env, Path cwd) {
         Map<String, String> file = loadDotenv(cwd);
         Config c = new Config();
+        c.model = value(env, file, "DEEPSEEK_MODEL", c.model);
         c.apiKey = value(env, file, "DEEPSEEK_API_KEY", c.apiKey);
         c.baseUrl = value(env, file, "DEEPSEEK_BASE_URL", c.baseUrl);
         c.im = value(env, file, "MISAIC_IM", c.im);
