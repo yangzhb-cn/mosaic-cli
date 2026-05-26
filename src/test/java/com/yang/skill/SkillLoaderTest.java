@@ -90,7 +90,7 @@ class SkillLoaderTest {
         Skill skill = new Skill("web-access", "Use web", "Use browser for tests only.", skillPath);
 
         String prompt = Prompt.systemPrompt(List.of(tool), List.of(skill));
-        String reminder = Prompt.systemReminder(List.of(mcp), List.of(skill));
+        String reminder = Prompt.systemReminder(List.of(mcp), List.of(skill), "User prefers concise answers.");
 
         assertFalse(prompt.contains("# Skills"));
         assertFalse(prompt.contains("Use browser for tests only."));
@@ -110,6 +110,8 @@ class SkillLoaderTest {
         assertTrue(reminder.contains("Use web"));
         assertTrue(reminder.contains("ReadSkill(name=...)"));
         assertTrue(reminder.contains("scripts、references、assets、templates"));
+        assertTrue(reminder.contains("# Long-term memory"));
+        assertTrue(reminder.contains("User prefers concise answers."));
         assertFalse(reminder.contains(skillPath.toString()));
         assertFalse(reminder.contains("Use browser for tests only."));
         assertTrue(reminder.endsWith("</system-reminder>"));
@@ -124,5 +126,6 @@ class SkillLoaderTest {
         assertTrue(reminder.contains("# 工具选择优先级"));
         assertFalse(reminder.contains("# MCP 工具"));
         assertFalse(reminder.contains("# Skills"));
+        assertFalse(reminder.contains("# Long-term memory"));
     }
 }

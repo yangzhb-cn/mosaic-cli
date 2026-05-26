@@ -18,6 +18,7 @@ import com.yang.context.ContextManager;
 import com.yang.im.ImClient;
 import com.yang.im.ImContext;
 import com.yang.llm.LlmClient;
+import com.yang.memory.MemoryManager;
 import com.yang.plan.PlanRunner;
 import com.yang.plan.PlanSession;
 import com.yang.plan.PlannerAgent;
@@ -42,6 +43,7 @@ public class Agent {
     private final ToolAudit audit;
     private final CliPlanController planController;
     private final ImContext imContext;
+    private final MemoryManager memory;
     private TokenUsage lastTokenUsage = new TokenUsage(0, 0, 0, 0, 0);
 
     /** 记录最近一次回复的 token 用量和上下文占用比例。 */
@@ -66,10 +68,15 @@ public class Agent {
     }
 
     public Agent(LlmClient llm, int maxContextTokens, ImClient im, List<Tools.Tool> extraTools, List<Skill> skills, ToolAudit audit) {
+        this(llm, maxContextTokens, im, extraTools, skills, audit, MemoryManager.disabled());
+    }
+
+    public Agent(LlmClient llm, int maxContextTokens, ImClient im, List<Tools.Tool> extraTools, List<Skill> skills, ToolAudit audit, MemoryManager memory) {
         this.llm = llm;
         this.im = im;
         this.skills = List.copyOf(skills);
         this.audit = audit == null ? new ToolAudit() : audit;
+        this.memory = memory == null ? MemoryManager.disabled() : memory;
         this.context = new ContextManager(maxContextTokens);
         // 最多允许模型-工具循环多少轮
         this.maxRounds = 50;
@@ -91,12 +98,17 @@ public class Agent {
     }
 
     Agent(LlmClient llm, List<Tools.Tool> tools, int maxContextTokens, int maxRounds, List<Skill> skills, ToolAudit audit) {
+        this(llm, tools, maxContextTokens, maxRounds, skills, audit, MemoryManager.disabled());
+    }
+
+    Agent(LlmClient llm, List<Tools.Tool> tools, int maxContextTokens, int maxRounds, List<Skill> skills, ToolAudit audit, MemoryManager memory) {
         this.llm = llm;
         this.im = null;
         this.skills = List.copyOf(skills);
         this.tools = tools;
         this.mcpTools = mcpTools(this.tools);
         this.audit = audit == null ? new ToolAudit() : audit;
+        this.memory = memory == null ? MemoryManager.disabled() : memory;
         this.toolExecutor = new ToolExecutor(tools, this.audit);
         this.planController = new CliPlanController(new PlannerAgent(llm, this.audit), new PlanRunner(this), messages, this::refreshLastTokenUsage);
         this.imContext = new ImContext();
@@ -263,7 +275,7 @@ public class Agent {
                 // 从当前工具列表里过滤掉名为 "Task" 的工具
                 .filter(t -> !"Task".equals(t.name()))
                 .toList();
-        Agent sub = new Agent(llm, subTools, context.maxTokens, maxRounds, skills);
+        Agent sub = new Agent(llm, subTools, context.maxTokens, maxRounds, skills, new ToolAudit(), memory);
         // 让子 Agent 执行任务，且不给 token 回调、工具回调
         return sub.chat(task, null, null);
     }
@@ -284,7 +296,7 @@ public class Agent {
             Map<String, Object> message = all.get(i);
             if (!"user".equals(message.get("role"))) continue;
             Object content = message.get("content");
-            String reminder = Prompt.systemReminder(mcpTools, skills);
+            String reminder = Prompt.systemReminder(mcpTools, skills, memory.readMemory());
             if (!reminder.isBlank()) message.put("content", reminder + "\n\n" + (content == null ? "" : content));
             return;
         }

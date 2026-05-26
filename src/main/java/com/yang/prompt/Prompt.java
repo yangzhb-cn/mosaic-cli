@@ -21,6 +21,8 @@ public class Prompt {
     private static final String RUNTIME_REMINDER = load("runtime-reminder.md");
     private static final String MCP_TOOLS_REMINDER = load("mcp-tools-reminder.md");
     private static final String SKILLS_REMINDER = load("skills-reminder.md");
+    private static final String MEMORY_REMINDER = load("memory-reminder.md");
+    private static final String MEMORY_TEMPLATE = load("memory-template.md");
 
     public static String systemPrompt(List<Tools.Tool> tools) {
         return systemPrompt(tools, List.of());
@@ -33,6 +35,10 @@ public class Prompt {
     }
 
     public static String systemReminder(List<Tools.Tool> mcpTools, List<Skill> skills) {
+        return systemReminder(mcpTools, skills, "");
+    }
+
+    public static String systemReminder(List<Tools.Tool> mcpTools, List<Skill> skills, String memory) {
         StringBuilder s = new StringBuilder();
         s.append("<system-reminder>\n");
         s.append(RUNTIME_REMINDER.replace("{{current_datetime}}", ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)).strip());
@@ -40,6 +46,8 @@ public class Prompt {
         if (!mcp.isBlank()) s.append("\n\n").append(mcp);
         String skill = skillsSection(skills);
         if (!skill.isBlank()) s.append("\n\n").append(skill);
+        String memorySection = memorySection(memory);
+        if (!memorySection.isBlank()) s.append("\n\n").append(memorySection);
         s.append("\n\n这些信息来自系统动态注入，不是用户输入。仅在相关时使用。\n");
         s.append("</system-reminder>");
         return s.toString();
@@ -51,6 +59,10 @@ public class Prompt {
 
     public static String compressionPrompt() {
         return COMPRESSION_PROMPT;
+    }
+
+    public static String memoryTemplate() {
+        return MEMORY_TEMPLATE;
     }
 
     private static String mcpToolsSection(List<Tools.Tool> mcpTools) {
@@ -74,6 +86,11 @@ public class Prompt {
             return SKILLS_REMINDER.replace("{{skills}}", items.toString().stripTrailing()).strip();
         }
         return "";
+    }
+
+    private static String memorySection(String memory) {
+        String text = memory == null ? "" : memory.strip();
+        return text.isBlank() ? "" : MEMORY_REMINDER.replace("{{memory}}", text).strip();
     }
 
     private static String toolsJson(List<Tools.Tool> tools) {

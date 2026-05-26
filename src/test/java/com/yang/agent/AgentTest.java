@@ -1,12 +1,17 @@
 package com.yang.agent;
 
+import com.yang.audit.ToolAudit;
 import com.yang.llm.LlmClient;
+import com.yang.memory.MemoryManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.yang.skill.Skill;
 import com.yang.tool.Tools;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -78,6 +83,47 @@ class AgentTest {
         assertTrue(sent.endsWith("hello"));
         assertEquals("hello", agent.messages.getFirst().get("content"));
         assertFalse(String.valueOf(agent.messages.getFirst().get("content")).contains("<system-reminder>"));
+    }
+
+    @Test
+    void injectsWorkspaceMemoryIntoSystemReminderDynamically(@TempDir Path temp) throws Exception {
+        MemoryManager memory = MemoryManager.forWorkspace(temp.resolve("workspace"));
+        memory.ensureWorkspace();
+        Files.writeString(memory.memoryFile(), "first memory");
+        CapturingFakeLlm llm = new CapturingFakeLlm();
+        Agent agent = new Agent(llm, List.of(), 128000, 1, List.of(), new ToolAudit(), memory);
+
+        agent.chat("hello", null, null);
+
+        String first = String.valueOf(llm.lastMessages.getLast().get("content"));
+        assertTrue(first.contains("<system-reminder>"));
+        assertTrue(first.contains("# Long-term memory"));
+        assertTrue(first.contains("first memory"));
+        assertEquals("hello", agent.messages.getFirst().get("content"));
+        assertFalse(String.valueOf(agent.messages.getFirst().get("content")).contains("first memory"));
+
+        Files.writeString(memory.memoryFile(), "second memory");
+        agent.chat("again", null, null);
+
+        String second = String.valueOf(llm.lastMessages.getLast().get("content"));
+        assertTrue(second.contains("second memory"));
+        assertFalse(second.contains("first memory"));
+    }
+
+    @Test
+    void subAgentAlsoReceivesWorkspaceMemory(@TempDir Path temp) throws Exception {
+        MemoryManager memory = MemoryManager.forWorkspace(temp.resolve("workspace"));
+        memory.ensureWorkspace();
+        Files.writeString(memory.memoryFile(), "subagent memory");
+        CapturingFakeLlm llm = new CapturingFakeLlm();
+        Agent agent = new Agent(llm, List.of(), 128000, 1, List.of(), new ToolAudit(), memory);
+
+        String response = agent.runSubAgent("do sub task", 1);
+
+        assertEquals("done", response);
+        String sent = String.valueOf(llm.lastMessages.getLast().get("content"));
+        assertTrue(sent.contains("# Long-term memory"));
+        assertTrue(sent.contains("subagent memory"));
     }
 
     @Test

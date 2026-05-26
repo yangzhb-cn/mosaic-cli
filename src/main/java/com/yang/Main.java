@@ -8,12 +8,14 @@ import com.yang.im.ImClient;
 import com.yang.im.ImMessage;
 import com.yang.im.TelegramImClient;
 import com.yang.llm.LlmClient;
+import com.yang.memory.MemoryManager;
 import com.yang.mcp.McpManager;
 import com.yang.session.SessionStore;
 import com.yang.skill.Skill;
 import com.yang.skill.SkillLoader;
 import com.yang.tool.Tools;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
@@ -43,12 +45,15 @@ public class Main {
         if (im != null) usedToolNames.add("send_message");
         McpManager mcp = McpManager.loadDefault(usedToolNames);
         List<Skill> skills = SkillLoader.loadDefault();
+        MemoryManager memory = MemoryManager.forWorkspace(Path.of("").toAbsolutePath().resolve("workspace"));
+        memory.ensureWorkspace();
 
         System.out.println(mcp.summary());
         System.out.println("Skills: " + skills.size() + " loaded");
+        System.out.println("Memory: workspace/CLAUDE.md");
 
         // 传入最大窗口，便于上下文压缩的配置策略
-        Agent agent = new Agent(llm, c.maxContextTokens, im, mcp.tools(), skills);
+        Agent agent = new Agent(llm, c.maxContextTokens, im, mcp.tools(), skills, null, memory);
         // 创建会话存储
         SessionStore sessions = new SessionStore();
 
