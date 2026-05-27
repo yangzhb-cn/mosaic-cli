@@ -81,9 +81,9 @@ mosaic
 参考 [.env.example](.env.example)：
 
 ```env
-DEEPSEEK_MODEL=deepseek-v4-flash
+DEEPSEEK_MODEL=deepseek-v4-flash/pro
 DEEPSEEK_API_KEY=your_api_key
-DEEPSEEK_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_BASE_URL=https://api.deepseek.com
 
 TAVILY_API_KEY=your_tavily_key
 MOSAIC_SCHEDULE_INTERVAL_SECONDS=30
@@ -98,6 +98,52 @@ OWNER_ID=your_user_id
 - `TAVILY_API_KEY`：可选，只在使用 `WebSearch` 时需要。
 - `MOSAIC_SCHEDULE_INTERVAL_SECONDS`：后台定时任务扫描间隔，默认 30 秒。
 - Telegram 配置可选；同时配置 `TELEGRAM_BOT_TOKEN` 和 `OWNER_ID` 后会自动启用。
+
+## MCP 与 Skills
+
+MCP 配置文件：
+
+```text
+~/.mosaiccoder/mcp.json
+```
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users"
+      ]
+    },
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
+    },
+    "datetime": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@odgrim/mcp-datetime"
+      ]
+    }
+  }
+}
+```
+
+Skill 文件：
+
+```text
+~/.mosaiccoder/skills/<name>/SKILL.md
+```
+
+启动时只加载 Skill 元数据，正文由 `ReadSkill` 工具按需读取。
 
 ## 常用命令
 
@@ -162,53 +208,6 @@ Read, LS, Glob, Grep, WebFetch, WebSearch
 
 `/act` 按 DAG 依赖调度，默认并发 4。`FILE_WRITE` 和 `COMMAND` 类型任务串行执行。某个 task 连续 3 次失败后停止调度新任务，保留已完成和失败结果。
 
-## MCP 与 Skills
-
-MCP 配置文件：
-
-```text
-~/.mosaiccoder/mcp.json
-```
-
-示例：
-
-```json
-{
-  "mcpServers": {
-    "filesystem": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
-      "env": {}
-    }
-  }
-}
-```
-
-Skill 文件：
-
-```text
-~/.mosaiccoder/skills/<name>/SKILL.md
-```
-
-启动时只加载 Skill 元数据，正文由 `ReadSkill` 工具按需读取。
-
-## 本地数据与隐私
-
-这些文件是本地运行态，不建议提交到公开仓库：
-
-```text
-.env
-data/
-workspace/Mosaic.md
-workspace/conversations/
-article/
-.idea/
-.vscode/
-```
-
-仓库提供 `.env.example` 作为配置模板。真正的 `.env` 只保留在本机。
-
 ## 开发
 
 运行测试：
@@ -228,30 +227,6 @@ mvn clean test
 ```bash
 mvn -DskipTests package
 ```
-
-## 发布到自己的 GitHub
-
-第一次推送：
-
-```bash
-git init
-git add README.md pom.xml src .gitignore .env.example
-git commit -m "Initial Mosaic CLI"
-git branch -M main
-git remote add origin git@github.com:<your-name>/<your-repo>.git
-git push -u origin main
-```
-
-已有仓库：
-
-```bash
-git remote add origin git@github.com:<your-name>/<your-repo>.git
-git add README.md pom.xml src .gitignore .env.example
-git commit -m "Update Mosaic CLI"
-git push -u origin main
-```
-
-如果要发可执行文件，可以把 `target/mosic-cli-0.1.0.jar` 上传到 GitHub Release。
 
 ## 项目结构
 
@@ -274,3 +249,4 @@ src/main/java/com/yang/
   skill/         # 本地 Skill 加载
   tool/          # 内置工具和工具执行器
 ```
+
