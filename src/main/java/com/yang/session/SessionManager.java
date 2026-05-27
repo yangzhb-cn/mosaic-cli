@@ -3,6 +3,7 @@ package com.yang.session;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yang.audit.ToolAudit;
+import com.yang.conversation.ConversationViewWriter;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -30,6 +31,7 @@ public final class SessionManager {
     private final Path dataDir;
     private final Path sessionsDir;
     private final Path stateFile;
+    private final ConversationViewWriter conversationView;
     private final boolean enabled;
     private String activeId;
     private Path activePath;
@@ -55,6 +57,7 @@ public final class SessionManager {
         this.dataDir = dataDir == null ? null : dataDir.toAbsolutePath().normalize();
         this.sessionsDir = this.dataDir == null ? null : this.dataDir.resolve("sessions");
         this.stateFile = this.dataDir == null ? null : this.dataDir.resolve("state.json");
+        this.conversationView = this.dataDir == null ? null : new ConversationViewWriter(this.dataDir.getParent().resolve("workspace/conversations"));
         this.enabled = enabled;
     }
 
@@ -97,6 +100,7 @@ public final class SessionManager {
                 "cwd", Path.of("").toAbsolutePath().toString(),
                 "created_at", now
         ));
+        refreshConversationViewQuietly();
         writeActiveId(sid, activePath);
         return new Session(sid, model, conversationId, List.of(), List.of(), now, now);
     }
@@ -138,6 +142,7 @@ public final class SessionManager {
         }
         appendAudit(auditRecords);
         activeMessages = current;
+        refreshConversationViewQuietly();
         writeActiveId(activeId, activePath);
     }
 
@@ -149,6 +154,7 @@ public final class SessionManager {
         ));
         appendAudit(auditRecords);
         activeMessages = List.of();
+        refreshConversationViewQuietly();
         writeActiveId(activeId, activePath);
     }
 
@@ -160,6 +166,7 @@ public final class SessionManager {
             data.put("kind", kind == null ? "event" : kind);
             if (payload != null) data.putAll(payload);
             append(activePath, "event_msg", data);
+            refreshConversationViewQuietly();
         } catch (Exception ignored) {
         }
     }
@@ -343,6 +350,16 @@ public final class SessionManager {
             }
             append(jsonl, "audit_snapshot", Map.of("records", asListOfMaps(data.get("audit_records"))));
             append(jsonl, "event_msg", Map.of("kind", "legacy_migrated", "source", file.toString(), "updated_at", updatedAt));
+            new ConversationViewWriter(dataDir.getParent().resolve("workspace/conversations")).write(jsonl, id);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void refreshConversationViewQuietly() {
+        try {
+            if (conversationView != null && activePath != null && activeId != null) {
+                conversationView.write(activePath, activeId);
+            }
         } catch (Exception ignored) {
         }
     }

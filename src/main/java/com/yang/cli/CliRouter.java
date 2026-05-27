@@ -20,7 +20,6 @@ public final class CliRouter {
             command("/compact", "压缩上下文"),
             command("/diff", "查看当前会话修改了哪些文件"),
             command("/mcp", "查看 MCP 加载状态"),
-            command("/last-request", "查看上一轮发给 LLM 的完整 JSON 请求"),
             command("/plan", "进入计划生成模式"),
             command("/act", "执行当前计划"),
             command("/cancel", "取消当前计划"),
@@ -80,11 +79,6 @@ public final class CliRouter {
         }
         if (line.equals("/mcp")) {
             System.out.println(mcp.details());
-            return true;
-        }
-        if (line.equals("/last-request")) {
-            String json = llm == null ? "" : llm.lastRequestJson();
-            System.out.println(json == null || json.isBlank() ? "📭 暂无 LLM 请求。" : json);
             return true;
         }
         if (line.equals("/plan")) {

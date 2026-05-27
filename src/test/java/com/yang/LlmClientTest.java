@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class LlmClientTest {
     private static final ObjectMapper JSON = new ObjectMapper();
     HttpServer server;
+    String lastRequestBody;
 
     @AfterEach
     void stopServer() {
@@ -53,7 +54,7 @@ class LlmClientTest {
         assertEquals(4, llm.totalCachedPromptTokens);
         assertEquals(5, llm.totalCompletionTokens);
 
-        JsonNode request = JSON.readTree(llm.lastRequestJson());
+        JsonNode request = JSON.readTree(lastRequestBody);
         assertEquals("test-model", request.path("model").asText());
         assertEquals("user", request.path("messages").get(0).path("role").asText());
         assertEquals("hi", request.path("messages").get(0).path("content").asText());
@@ -136,6 +137,7 @@ class LlmClientTest {
     private String startServer(String response) throws IOException {
         server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/chat/completions", exchange -> {
+            lastRequestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", "text/event-stream");
             exchange.sendResponseHeaders(200, bytes.length);

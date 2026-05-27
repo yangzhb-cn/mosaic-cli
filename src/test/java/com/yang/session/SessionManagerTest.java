@@ -57,6 +57,12 @@ class SessionManagerTest {
         assertTrue(jsonl.contains("\"type\":\"response_item\""));
         assertTrue(jsonl.contains("\"type\":\"audit_snapshot\""));
         assertTrue(jsonl.contains("tool result"));
+        String view = Files.readString(conversationView(data, created.id()));
+        assertTrue(view.contains("# Conversation: " + created.id()));
+        assertTrue(view.contains("### User"));
+        assertTrue(view.contains("hello"));
+        assertFalse(view.contains("### Tool Result"));
+        assertFalse(view.contains("tool result"));
     }
 
     @Test
@@ -102,6 +108,9 @@ class SessionManagerTest {
         String jsonl = Files.readString(jsonlFiles(data).getFirst());
         assertTrue(jsonl.contains("before"));
         assertTrue(jsonl.contains("\"type\":\"session_reset\""));
+        String view = Files.readString(conversationView(data, session.id()));
+        assertFalse(view.contains("## Session Reset"));
+        assertTrue(view.contains("before"));
     }
 
     @Test
@@ -118,6 +127,27 @@ class SessionManagerTest {
         assertEquals(compressed, restored.messages());
         String jsonl = Files.readString(jsonlFiles(data).getFirst());
         assertTrue(jsonl.contains("\"type\":\"context_reset\""));
+        String view = Files.readString(conversationView(data, session.id()));
+        assertFalse(view.contains("## Context Reset"));
+        assertTrue(view.contains("[上下文已压缩]"));
+    }
+
+    @Test
+    void recordEventRefreshesConversationViewWithoutAffectingReplay() throws Exception {
+        Path data = temp.resolve("data");
+        SessionManager manager = new SessionManager(data);
+        SessionManager.Session session = manager.create("events", "m");
+        manager.saveActive(List.of(Map.of("role", "user", "content", "hello")), "m", "conversation_events");
+
+        manager.recordEvent("tool_call", Map.of("name", "Read", "arguments", Map.of("file_path", "README.md")));
+
+        SessionManager.Session restored = manager.load(session.id());
+        assertEquals(1, restored.messages().size());
+        assertEquals("hello", restored.messages().getFirst().get("content"));
+        String view = Files.readString(conversationView(data, session.id()));
+        assertFalse(view.contains("### Tool Call"));
+        assertFalse(view.contains("Read"));
+        assertFalse(view.contains("README.md"));
     }
 
     @Test
@@ -145,11 +175,16 @@ class SessionManagerTest {
         assertEquals("conversation_legacy", session.conversationId());
         assertEquals("old message", session.messages().getFirst().get("content"));
         assertEquals(1, jsonlFiles(data).size());
+        assertTrue(Files.exists(conversationView(data, "legacy")));
     }
 
     private static List<Path> jsonlFiles(Path data) throws Exception {
         try (var stream = Files.walk(data.resolve("sessions"))) {
             return stream.filter(p -> p.getFileName().toString().endsWith(".jsonl")).toList();
         }
+    }
+
+    private static Path conversationView(Path data, String sessionId) {
+        return data.getParent().resolve("workspace/conversations").resolve(sessionId).resolve("conversation.md");
     }
 }

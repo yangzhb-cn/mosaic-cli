@@ -154,7 +154,6 @@ Skill 文件：
 /compact             压缩上下文
 /diff                查看当前会话修改过的文件
 /mcp                 查看 MCP 加载状态
-/last-request        查看上一轮发给 LLM 的完整 JSON 请求
 /audit               查看工具调用统计表格
 /audit save          保存审计快照
 /session             展示当前 active session 和 user messages
@@ -175,6 +174,7 @@ Session 是可切换的运行上下文，自动保存到当前项目目录：
 ```text
 data/state.json
 data/sessions/YYYY/MM/DD/session_<timestamp>_<id>.jsonl
+workspace/conversations/<session_id>/conversation.md
 ```
 
 每行 JSONL 结构为 `timestamp/type/payload`：
@@ -184,6 +184,8 @@ data/sessions/YYYY/MM/DD/session_<timestamp>_<id>.jsonl
 - `session_reset` / `context_reset`：恢复边界。
 
 系统提示词会引导模型在需要历史信息时搜索 `data/sessions/**/*.jsonl`，不会把全部历史自动塞进上下文。
+
+`conversation.md` 是绑定 session 的 Markdown 可视化视图，由对应 JSONL 自动生成，只展示 session header、User 和 Assistant。它只方便人阅读，不参与 session 恢复；删除后下次 session 写入会重新生成。
 
 长期记忆文件：
 
@@ -238,6 +240,7 @@ src/main/java/com/yang/
   audit/         # 工具调用审计
   cli/           # REPL、命令路由、CLI plan 编排
   config/        # 环境变量和 .env 配置
+  conversation/  # session JSONL 的 Markdown 可视化视图
   context/       # 上下文估算、清理、压缩
   im/            # IM 抽象和 Telegram 实现
   llm/           # OpenAI 兼容 LLM 客户端
@@ -250,4 +253,3 @@ src/main/java/com/yang/
   skill/         # 本地 Skill 加载
   tool/          # 内置工具和工具执行器
 ```
-

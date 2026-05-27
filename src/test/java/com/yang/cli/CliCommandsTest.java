@@ -38,34 +38,6 @@ class CliCommandsTest {
     }
 
     @Test
-    void lastRequestCommandPrintsJson() throws Exception {
-        PrintStream original = System.out;
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
-            assertTrue(CliRouter.handle("/last-request", null, new FakeLlm("{\"messages\":[{\"role\":\"system\"}]}"), null));
-        } finally {
-            System.setOut(original);
-        }
-
-        assertTrue(out.toString(StandardCharsets.UTF_8).contains("\"role\":\"system\""));
-    }
-
-    @Test
-    void lastRequestCommandHandlesEmptyRequest() throws Exception {
-        PrintStream original = System.out;
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        try {
-            System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
-            assertTrue(CliRouter.handle("/last-request", null, new FakeLlm(""), null));
-        } finally {
-            System.setOut(original);
-        }
-
-        assertTrue(out.toString(StandardCharsets.UTF_8).contains("暂无 LLM 请求"));
-    }
-
-    @Test
     void planCommandWaitsForTaskAndActWithoutPlanReportsEmpty() throws Exception {
         Agent agent = new Agent(new FakeLlm(""), 1000, null, List.of(), List.of(), new ToolAudit(temp));
 
@@ -306,16 +278,8 @@ class CliCommandsTest {
     }
 
     private static final class FakeLlm extends LlmClient {
-        private final String lastRequestJson;
-
-        private FakeLlm(String lastRequestJson) {
+        private FakeLlm(String ignored) {
             super("test-model", "key", "http://localhost", 0);
-            this.lastRequestJson = lastRequestJson;
-        }
-
-        @Override
-        public String lastRequestJson() {
-            return lastRequestJson;
         }
     }
 
