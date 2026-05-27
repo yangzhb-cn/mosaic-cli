@@ -86,10 +86,11 @@ DEEPSEEK_API_KEY=your_api_key
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 
 TAVILY_API_KEY=your_tavily_key
-MOSAIC_SCHEDULE_INTERVAL_SECONDS=30
 
 TELEGRAM_BOT_TOKEN=your_bot_token
 OWNER_ID=your_user_id
+
+MOSAIC_SCHEDULE_INTERVAL_SECONDS=30
 ```
 
 说明：
