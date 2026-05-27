@@ -27,9 +27,10 @@ class ToolsTest {
     @Test
     void allToolsExposeSchemas() {
         List<Tools.Tool> tools = Tools.all(null);
-        assertEquals(13, tools.size());
+        assertEquals(18, tools.size());
         assertNotNull(Tools.get(tools, "WebFetch"));
         assertNotNull(Tools.get(tools, "WebSearch"));
+        assertNotNull(Tools.get(tools, "schedule_task"));
         for (Tools.Tool t : tools) {
             Map<String, Object> schema = t.schema();
             assertEquals("function", schema.get("type"));
@@ -45,7 +46,7 @@ class ToolsTest {
         List<Tools.Tool> tools = Tools.all(null, List.of(extra));
 
         assertNotNull(Tools.get(tools, "mcp_demo_echo"));
-        assertEquals(14, tools.size());
+        assertEquals(19, tools.size());
     }
 
     @Test
@@ -189,7 +190,7 @@ class ToolsTest {
         Agent agent = new Agent(new LlmClient("m", "k", "http://localhost", 0), 1000, im);
         List<Tools.Tool> tools = Tools.all(agent);
         assertNotNull(Tools.get(tools, "send_message"));
-        assertEquals(14, tools.size());
+        assertEquals(19, tools.size());
     }
 
     @Test

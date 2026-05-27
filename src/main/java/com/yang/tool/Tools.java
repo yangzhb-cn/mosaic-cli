@@ -1,6 +1,7 @@
 package com.yang.tool;
 
 import com.yang.agent.Agent;
+import com.yang.schedule.ScheduleTools;
 import com.yang.skill.Skill;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -72,6 +73,7 @@ public final class Tools {
                 new TodoWriteTool(),
                 new AgentTool(parent)
         ));
+        tools.addAll(ScheduleTools.tools(parent));
         if (parent != null && parent.imClient() != null) tools.add(new SendMessageTool(parent));
         if (!skills.isEmpty()) tools.add(new ReadSkillTool(skills));
         tools.addAll(extraTools);

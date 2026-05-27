@@ -101,7 +101,7 @@ class PlanRunnerTest {
 
         assertTrue(agent.task.contains("搜索和外部资料任务"));
         assertTrue(agent.task.contains("外部资料、当前信息、文档、网页、竞品、趋势、新闻或热点"));
-        assertTrue(agent.task.contains("最多 2 次 WebSearch + 3 次 WebFetch"));
+        assertTrue(agent.task.contains("拿到足够来源后立刻停止搜索并整理结果"));
         assertTrue(agent.task.contains("已经包含明确日期时，不要再调用日期/时间工具"));
         assertTrue(agent.task.contains("不要把旧信息、相邻日期信息或弱相关页面伪装成用户要求的时间、主题或结论"));
         assertEquals(8, agent.maxRounds);

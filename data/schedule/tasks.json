@@ -1,0 +1,15 @@
+[ {
+  "id" : "task_1779880415698_9e4d1693",
+  "prompt" : "向用户发送近日 AI 热点新闻摘要。基于 /Users/yangzhibin/projects/i/mosaic-cli/new.md 中的内容，用简洁的方式告诉用户近几天（5月22日-26日）最重要的 AI 热点新闻，按影响力排序：\n\n1. OpenAI 内部模型独立证明八十年数学猜想（Erdős 单位距离猜想），获9位数学家验证\n2. Anthropic 首度单季盈利，Q2 预估营收 109 亿美元\n3. Anthropic 与 SpaceX 达成 450 亿美元计算承诺\n4. 白宫秘密批准 90 亿美元，将 AI 提升为国家安全资产\n5. 中美启动首次 AI 政府间对话\n6. Google AI 搜索因 \"disregard\" 单词大规模翻车\n7. 教皇利奥十四世发布通谕警告 AI\n8. OpenAI 锁定 9 月 IPO\n\n用 send_message 工具发送，保持简洁。",
+  "type" : "once",
+  "run_at" : "2026-05-27T11:14:30Z",
+  "interval_seconds" : null,
+  "status" : "completed",
+  "chat_id" : "",
+  "created_at" : "2026-05-27T11:13:35.696931Z",
+  "updated_at" : "2026-05-27T11:15:13.352450Z",
+  "last_run" : "2026-05-27T11:15:13.352043Z",
+  "next_run" : "",
+  "last_result" : "消息已发送给用户。",
+  "last_error" : ""
+} ]

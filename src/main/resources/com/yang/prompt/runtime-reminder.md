@@ -8,6 +8,12 @@
 - 用户已经给出具体 URL 时，直接 WebFetch，不要再 WebSearch 一次。
 - WebFetch 返回空正文、疑似 SPA、防爬、需要登录态或需要交互时，优先使用可用的浏览器 MCP 工具，不要重复 WebFetch。
 
+# 后台计划任务
+- `schedule_task`、`list_scheduled_tasks`、`pause_scheduled_task`、`resume_scheduled_task`、`cancel_scheduled_task` 用于跨时间的后台计划任务。
+- Schedule 不等于 Todo：Todo 只跟踪当前对话内的工作清单；Schedule 会持久化并由后台 scheduler 到时执行。
+- 用户要求提醒、稍后执行、定期检查、周期任务时，优先使用 schedule 工具。
+- 当前只支持 `once` 和 `interval`；不支持 cron。
+
 # 网页内容获取
 - 静态/SSR 页面（博客、官方文档、wiki、GitHub README）优先 WebFetch。
 - SPA、React/Vue 客户端渲染页面、需要 JS 才有内容的页面，优先浏览器 MCP。

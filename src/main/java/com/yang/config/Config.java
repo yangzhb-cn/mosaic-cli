@@ -16,6 +16,7 @@ public class Config {
     public String baseUrl = "https://api.deepseek.com/v1";
     public double temperature = 0.0;
     public int maxContextTokens = 128000;
+    public int scheduleIntervalSeconds = 30;
     
     public String im = "";
     public String telegramBotToken = "";
@@ -34,6 +35,7 @@ public class Config {
         c.model = value(env, file, "DEEPSEEK_MODEL", c.model);
         c.apiKey = value(env, file, "DEEPSEEK_API_KEY", c.apiKey);
         c.baseUrl = value(env, file, "DEEPSEEK_BASE_URL", c.baseUrl);
+        c.scheduleIntervalSeconds = integer(value(env, file, "MOSAIC_SCHEDULE_INTERVAL_SECONDS", String.valueOf(c.scheduleIntervalSeconds)), c.scheduleIntervalSeconds);
         c.im = value(env, file, "MISAIC_IM", c.im);
         c.telegramBotToken = value(env, file, "TELEGRAM_BOT_TOKEN", c.telegramBotToken);
         c.telegramOwnerId = first(env, file, List.of("TELEGRAM_OWNER_ID", "OWNER_ID"), c.telegramOwnerId);
@@ -64,6 +66,14 @@ public class Config {
             if (v != null && !v.isBlank()) return v;
         }
         return def;
+    }
+
+    private static int integer(String value, int def) {
+        try {
+            return Integer.parseInt(value);
+        } catch (Exception e) {
+            return def;
+        }
     }
 
     // 从当前目录开始向上查找 .env 文件: 可以把 .env 放在项目根目录，程序从子目录启动时也能找到

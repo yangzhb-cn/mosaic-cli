@@ -24,6 +24,7 @@ import com.yang.plan.PlanRunner;
 import com.yang.plan.PlanSession;
 import com.yang.plan.PlannerAgent;
 import com.yang.prompt.PromptMessageBuilder;
+import com.yang.schedule.ScheduleStore;
 import com.yang.session.SessionManager;
 import com.yang.session.SessionRuntime;
 import com.yang.skill.Skill;
@@ -41,6 +42,7 @@ public class Agent {
     private final int maxRounds;
     private final SessionRuntime session;
     private final ImRuntime im;
+    private final ScheduleStore scheduleStore;
     private final PromptMessageBuilder promptBuilder;
     private final SubAgentRunner subAgents;
     private final CliPlanController planController;
@@ -76,9 +78,14 @@ public class Agent {
     }
 
     public Agent(LlmClient llm, int maxContextTokens, ImClient im, List<Tools.Tool> extraTools, List<Skill> skills, ToolAudit audit, MemoryManager memory, SessionManager sessionManager) {
+        this(llm, maxContextTokens, im, extraTools, skills, audit, memory, sessionManager, ScheduleStore.disabled());
+    }
+
+    public Agent(LlmClient llm, int maxContextTokens, ImClient im, List<Tools.Tool> extraTools, List<Skill> skills, ToolAudit audit, MemoryManager memory, SessionManager sessionManager, ScheduleStore scheduleStore) {
         List<Skill> skillList = List.copyOf(skills);
         this.llm = llm;
         this.im = new ImRuntime(im);
+        this.scheduleStore = scheduleStore == null ? ScheduleStore.disabled() : scheduleStore;
         this.session = new SessionRuntime(llm, audit, memory, sessionManager, true);
         this.context = new ContextManager(maxContextTokens);
         // 最多允许模型-工具循环多少轮
@@ -115,6 +122,7 @@ public class Agent {
         List<Skill> skillList = List.copyOf(skills);
         this.llm = llm;
         this.im = new ImRuntime(null);
+        this.scheduleStore = ScheduleStore.disabled();
         this.tools = tools;
         this.context = new ContextManager(maxContextTokens);
         this.maxRounds = maxRounds;
@@ -262,6 +270,10 @@ public class Agent {
 
     public ImClient imClient() {
         return im.imClient();
+    }
+
+    public ScheduleStore scheduleStore() {
+        return scheduleStore;
     }
 
     public String currentImChatId() {
