@@ -97,6 +97,9 @@ class SkillLoaderTest {
         assertFalse(prompt.contains("安装 MCP 时"));
         assertTrue(prompt.contains("工作目录:"));
         assertTrue(prompt.contains("可用内置工具及其 JSON schema 如下"));
+        assertTrue(prompt.contains("data/sessions/**/*.jsonl"));
+        assertTrue(prompt.contains("response_item"));
+        assertTrue(prompt.contains("event_msg"));
         assertTrue(prompt.contains("\"name\" : \"SearchTool\""));
         assertTrue(prompt.contains("\"description\" : \"Search test files\""));
         assertFalse(prompt.contains("mcp_demo_search"));

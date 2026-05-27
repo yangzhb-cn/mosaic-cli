@@ -157,7 +157,7 @@ class AgentTest {
     }
 
     @Test
-    void chatAutoSavesActiveSessionAndArchivesExchange(@TempDir Path temp) throws Exception {
+    void chatAutoSavesActiveSessionWithoutMarkdownArchive(@TempDir Path temp) throws Exception {
         MemoryManager memory = MemoryManager.forWorkspace(temp.resolve("workspace"));
         memory.ensureWorkspace();
         SessionManager sessions = new SessionManager(temp.resolve("data"));
@@ -173,9 +173,33 @@ class AgentTest {
         assertEquals("remember this", saved.messages().getFirst().get("content"));
         assertEquals(agent.conversationId(), saved.conversationId());
         Path archive = memory.conversationsDir().resolve(java.time.LocalDate.now() + ".md");
-        String archived = Files.readString(archive);
-        assertTrue(archived.contains("remember this"));
-        assertTrue(archived.contains("done"));
+        assertFalse(Files.exists(archive));
+        String jsonl = Files.readString(jsonlFiles(temp.resolve("data")).getFirst());
+        assertTrue(jsonl.contains("\"type\":\"response_item\""));
+        assertTrue(jsonl.contains("remember this"));
+        assertTrue(jsonl.contains("done"));
+    }
+
+    @Test
+    void toolResultsArePersistedAndRestoredFromSessionJsonl(@TempDir Path temp) throws Exception {
+        CountDownLatch started = new CountDownLatch(2);
+        StreamingFakeLlm llm = new StreamingFakeLlm(started);
+        List<Tools.Tool> tools = List.of(new TestTool("Slow", "slow", 0, started), new TestTool("Fast", "fast", 0, started));
+        SessionManager sessions = new SessionManager(temp.resolve("data"));
+        SessionManager.Session active = sessions.loadActiveOrCreate("test-model");
+        Agent agent = new Agent(llm, tools, 128000, 3, List.of(), new ToolAudit(temp.resolve("audits")), MemoryManager.disabled(), sessions);
+        agent.loadSession(active.messages(), active.conversationId(), active.auditRecords());
+
+        agent.chat("run tools", null, null);
+
+        SessionManager.Session saved = sessions.load(active.id());
+        assertEquals("tool", saved.messages().get(2).get("role"));
+        assertEquals("slow", saved.messages().get(2).get("content"));
+        String jsonl = Files.readString(jsonlFiles(temp.resolve("data")).getFirst());
+        assertTrue(jsonl.contains("\"type\":\"response_item\""));
+        assertTrue(jsonl.contains("\"type\":\"event_msg\""));
+        assertTrue(jsonl.contains("call_slow"));
+        assertTrue(jsonl.contains("slow"));
     }
 
     @Test
@@ -278,6 +302,12 @@ class AgentTest {
         public Response chat(List<Map<String, Object>> messages, List<Map<String, Object>> tools, Consumer<String> onToken, ToolReady onToolReady) {
             if (onToken != null) onToken.accept("done");
             return new Response("done", "", List.of(), 0, 0, 0);
+        }
+    }
+
+    private static List<Path> jsonlFiles(Path data) throws Exception {
+        try (var stream = Files.walk(data.resolve("sessions"))) {
+            return stream.filter(p -> p.getFileName().toString().endsWith(".jsonl")).toList();
         }
     }
 

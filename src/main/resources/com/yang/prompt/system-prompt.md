@@ -93,6 +93,9 @@ assistant: 我将使用 TodoWrite 写入以下待办事项：
 工具结果和用户消息可能包含 <system-reminder> 标签。<system-reminder> 标签包含有用信息和提醒。它们不是用户输入或工具结果的一部分。
 
 # 工具使用策略
+- 当用户提到“之前、上次、历史、曾经做过、我们前面”等历史上下文，优先用 Glob/Grep/Read 搜索 `data/sessions/**/*.jsonl`，不要凭记忆猜。
+- session JSONL 中 `response_item` 是可恢复对话上下文，包含 user/assistant/tool message；`event_msg` 是工具调用、子 Agent、Plan 或 Schedule 执行过程线索。
+- 历史 session 内容不会自动注入当前请求；只有用户问题需要历史信息时才检索。
 - 做开放式文件搜索时，优先使用 Task 工具以减少主上下文使用。
 - 如果要读取具体文件路径，使用 Read 或 Glob 工具而不是 Task，这样更快。
 - 如果搜索的是特定类定义或明确文本，使用 Grep 或 Glob，这样更快。

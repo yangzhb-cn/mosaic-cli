@@ -47,6 +47,7 @@ public final class ScheduleRunner implements AutoCloseable {
         boolean success = false;
         String result = "";
         String error = "";
+        agent.recordEvent("schedule_run_started", java.util.Map.of("task_id", task.id(), "prompt", task.prompt()));
         try {
             if (task.chatId() != null && !task.chatId().isBlank()) agent.setCurrentImChatId(task.chatId());
             result = agent.runSubAgent(prompt(task), TASK_MAX_ROUNDS);
@@ -60,6 +61,12 @@ public final class ScheduleRunner implements AutoCloseable {
 
         Instant finishedAt = Instant.now();
         store.finishRun(task, success, result == null ? "" : result, error, finishedAt);
+        agent.recordEvent("schedule_run_finished", java.util.Map.of(
+                "task_id", task.id(),
+                "success", success,
+                "result", result == null ? "" : result,
+                "error", error == null ? "" : error
+        ));
         notifyIfNeeded(task, success ? result : "错误: " + error);
     }
 

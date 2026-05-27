@@ -8,9 +8,20 @@ web/out/
 
 # IDE
 .idea/
+.vscode/
 *.iml
 *.ipr
 *.iws
+
+# Local config
+.env
+!.env.example
+
+# Local runtime state
+data/
+workspace/Mosaic.md
+workspace/conversations/
+article/
 
 # OS
 .DS_Store

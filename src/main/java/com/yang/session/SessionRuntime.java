@@ -14,14 +14,12 @@ public final class SessionRuntime {
     private final ToolAudit audit;
     private final MemoryManager memory;
     private final SessionManager sessions;
-    private final boolean archiveConversation;
 
     public SessionRuntime(LlmClient llm, ToolAudit audit, MemoryManager memory, SessionManager sessions, boolean archiveConversation) {
         this.llm = llm;
         this.audit = audit == null ? new ToolAudit() : audit;
         this.memory = memory == null ? MemoryManager.disabled() : memory;
         this.sessions = sessions == null ? SessionManager.disabled() : sessions;
-        this.archiveConversation = archiveConversation;
     }
 
     public ToolAudit audit() {
@@ -41,15 +39,22 @@ public final class SessionRuntime {
     }
 
     public void archiveExchange(String userInput, String assistantResponse) {
-        if (archiveConversation) memory.archiveExchange(userInput, assistantResponse);
     }
 
     public void resetAudit() {
         audit.reset();
     }
 
+    public void resetSession() throws IOException {
+        sessions.resetActive(audit.conversationId(), audit.records());
+    }
+
     public void loadAudit(String conversationId, List<Map<String, Object>> auditRecords) {
         audit.restoreConversation(conversationId, auditRecords);
+    }
+
+    public void recordEvent(String kind, Map<String, Object> payload) {
+        sessions.recordEvent(kind, payload);
     }
 
     public void save(List<Map<String, Object>> messages) throws IOException {

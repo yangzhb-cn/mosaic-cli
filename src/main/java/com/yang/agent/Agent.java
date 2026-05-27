@@ -163,7 +163,7 @@ public class Agent {
                             if (onToken != null) onToken.accept(token);
                         },
                         // 某个流式工具参数拼完整后，立即提交到线程池执行。
-                        (idx, tc) -> toolExecutor.submit(futures, pool, idx, tc, onTool));
+                        (idx, tc) -> toolExecutor.submit(futures, pool, idx, tc, toolCallback(onTool)));
                 promptTokens += r.promptTokens();
                 cachedPromptTokens += r.cachedPromptTokens();
                 completionTokens += r.completionTokens();
@@ -174,7 +174,6 @@ public class Agent {
                     // 把模型回复加入消息历史。
                     messages.add(r.message());
                     lastTokenUsage = usage(promptTokens, cachedPromptTokens, completionTokens, contextTokens);
-                    session.archiveExchange(userInput, r.content());
                     saveSession();
                     // 返回模型的最终内容，结束 chat
                     return r.content();
@@ -185,7 +184,7 @@ public class Agent {
                 messages.add(r.message());
 
                 // 等待提前提交的工具；没提前提交的工具在这里兜底提交。
-                List<String> results = toolExecutor.collectResults(r.toolCalls(), futures, pool, onTool);
+                List<String> results = toolExecutor.collectResults(r.toolCalls(), futures, pool, toolCallback(onTool));
                 // 遍历每一个工具调用，把执行结果写回消息历史
                 for (int j = 0; j < r.toolCalls().size(); j++) {
                     // 使用 LinkedHashMap 是为了保持字段插入顺序，方便调试或序列化时更稳定
@@ -246,7 +245,10 @@ public class Agent {
     }
 
     public synchronized String actPlan(Consumer<String> onProgress) throws Exception {
-        return planController.act(onProgress);
+        return planController.act(progress -> {
+            recordEvent("plan_progress", Map.of("message", progress));
+            if (onProgress != null) onProgress.accept(progress);
+        });
     }
 
     public synchronized String cancelPlan() {
@@ -284,13 +286,20 @@ public class Agent {
         im.setCurrentChatId(chatId);
     }
 
+    public void recordEvent(String kind, Map<String, Object> payload) {
+        session.recordEvent(kind, payload);
+    }
+
     // 清空对话历史
     public synchronized void reset() {
         messages.clear();
         planController.clear();
         session.resetAudit();
         lastTokenUsage = new TokenUsage(0, 0, 0, 0, context.maxTokens);
-        session.saveQuietly(messages);
+        try {
+            session.resetSession();
+        } catch (IOException ignored) {
+        }
     }
 
     public synchronized void loadSession(List<Map<String, Object>> loadedMessages, String conversationId) {
@@ -325,5 +334,15 @@ public class Agent {
     private void messagesChanged() {
         lastTokenUsage = usage(0, 0, 0, ContextManager.estimateTokens(messages));
         session.saveQuietly(messages);
+    }
+
+    private BiConsumer<String, Map<String, Object>> toolCallback(BiConsumer<String, Map<String, Object>> onTool) {
+        return (name, args) -> {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("name", name);
+            payload.put("arguments", args == null ? Map.of() : args);
+            recordEvent("tool_call", payload);
+            if (onTool != null) onTool.accept(name, args);
+        };
     }
 }
