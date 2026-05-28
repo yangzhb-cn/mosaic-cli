@@ -16,6 +16,12 @@ public final class ToolExecutor {
     private final List<Tools.Tool> tools;
     private final ToolAudit audit;
 
+    /** 工具执行事件：accept 表示开始，finished 表示结束。 */
+    public interface ToolObserver extends BiConsumer<String, Map<String, Object>> {
+        default void finished(String name, Map<String, Object> args, boolean success, long elapsedNanos, String result) {
+        }
+    }
+
     public ToolExecutor(List<Tools.Tool> tools) {
         this(tools, null);
     }
@@ -30,13 +36,17 @@ public final class ToolExecutor {
     }
 
     // 把一个工具调用按 index 提交到线程池；已提交过则直接复用原 Future。
-    public void submit(Map<Integer, Future<String>> futures, ExecutorService pool, int idx, LlmClient.ToolCall tc, BiConsumer<String, Map<String, Object>> onTool) {
+    public void submit(Map<Integer, Future<String>> futures, ExecutorService pool, int idx, LlmClient.ToolCall tc, ToolObserver onTool) {
         // computeIfAbsent 保证同一个 index 不会因为流式回调和兜底逻辑(未流式调用)被执行两次。
         futures.computeIfAbsent(idx, ignored -> pool.submit(() -> execute(tc, onTool)));
     }
 
+    public void submit(Map<Integer, Future<String>> futures, ExecutorService pool, int idx, LlmClient.ToolCall tc, BiConsumer<String, Map<String, Object>> onTool) {
+        submit(futures, pool, idx, tc, observer(onTool));
+    }
+
     // 按模型返回的工具顺序收集结果，保证写回 messages 的 tool_result 顺序稳定。
-    public List<String> collectResults(List<LlmClient.ToolCall> calls, Map<Integer, Future<String>> futures, ExecutorService pool, BiConsumer<String, Map<String, Object>> onTool) throws Exception {
+    public List<String> collectResults(List<LlmClient.ToolCall> calls, Map<Integer, Future<String>> futures, ExecutorService pool, ToolObserver onTool) throws Exception {
         // 结果列表顺序必须和 tool_calls 顺序一致。
         List<String> results = new ArrayList<>();
         for (int i = 0; i < calls.size(); i++) {
@@ -48,30 +58,50 @@ public final class ToolExecutor {
         return results;
     }
 
-    String execute(LlmClient.ToolCall tc, BiConsumer<String, Map<String, Object>> onTool) {
+    public List<String> collectResults(List<LlmClient.ToolCall> calls, Map<Integer, Future<String>> futures, ExecutorService pool, BiConsumer<String, Map<String, Object>> onTool) throws Exception {
+        return collectResults(calls, futures, pool, observer(onTool));
+    }
+
+    String execute(LlmClient.ToolCall tc, ToolObserver onTool) {
         long started = System.nanoTime();
         boolean success = false;
+        String result = "";
+        Map<String, Object> args = tc.arguments() == null ? Map.of() : tc.arguments();
         try {
+            if (onTool != null) onTool.accept(tc.name(), args);
             // 根据工具名从工具列表里查找实际工具对象
             Tools.Tool tool = Tools.get(tools, tc.name());
-            if (tool == null) return "错误: 未知工具 '" + tc.name() + "'";
-            String error = validateArgs(tool, tc.arguments());
-            if (error != null) return "错误: " + error;
-            // 如果有工具回调，就先通知外部clicommands
-            if (onTool != null) onTool.accept(tc.name(), tc.arguments());
+            if (tool == null) {
+                result = "错误: 未知工具 '" + tc.name() + "'";
+                return result;
+            }
+            String error = validateArgs(tool, args);
+            if (error != null) {
+                result = "错误: " + error;
+                return result;
+            }
             try {
                 // 执行工具，如果执行成功，返回工具结果字符串
-                String result = tool.execute(tc.arguments());
+                result = tool.execute(args);
                 success = result == null || !result.startsWith("错误:");
-                return result;
+                return result == null ? "" : result;
             } catch (Exception e) {
                 // 如果异常，返回格式化错误信息，而不是直接抛出异常
                 // 这样可以让模型看到工具失败原因，并尝试修正
-                return "错误: 执行工具 " + tc.name() + " 失败: " + e.getMessage();
+                result = "错误: 执行工具 " + tc.name() + " 失败: " + e.getMessage();
+                return result;
             }
         } finally {
-            if (audit != null) audit.record(tc.name(), success, System.nanoTime() - started);
+            long elapsed = System.nanoTime() - started;
+            if (audit != null) audit.record(tc.name(), success, elapsed);
+            if (onTool != null) onTool.finished(tc.name(), args, success, elapsed, result);
         }
+    }
+
+    private static ToolObserver observer(BiConsumer<String, Map<String, Object>> onTool) {
+        if (onTool == null) return null;
+        if (onTool instanceof ToolObserver observer) return observer;
+        return onTool::accept;
     }
 
     private String validateArgs(Tools.Tool tool, Map<String, Object> args) {

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -74,6 +75,37 @@ class ToolExecutorTest {
         assertEquals(0, rows.get("Missing").get("Success"));
         assertEquals(0, rows.get("Throwing").get("Success"));
         assertEquals(0, rows.get("Error").get("Success"));
+    }
+
+    @Test
+    void notifiesToolObserverOfStartAndFinishForSuccessAndFailure() {
+        ToolExecutor executor = new ToolExecutor(List.of(new StrictTool(), new ErrorTool()));
+        List<String> events = new ArrayList<>();
+        ToolExecutor.ToolObserver observer = new ToolExecutor.ToolObserver() {
+            @Override
+            public void accept(String name, Map<String, Object> args) {
+                events.add("start:" + name + ":" + args);
+            }
+
+            @Override
+            public void finished(String name, Map<String, Object> args, boolean success, long elapsedNanos, String result) {
+                events.add((success ? "done:" : "fail:") + name + ":" + result);
+                assertTrue(elapsedNanos >= 0);
+            }
+        };
+
+        executor.execute(new LlmClient.ToolCall("call_1", "Strict", Map.of("input", "ok")), observer);
+        executor.execute(new LlmClient.ToolCall("call_2", "Error", Map.of()), observer);
+        executor.execute(new LlmClient.ToolCall("call_3", "Missing", Map.of()), observer);
+
+        assertEquals(List.of(
+                "start:Strict:{input=ok}",
+                "done:Strict:executed",
+                "start:Error:{}",
+                "fail:Error:错误: failed",
+                "start:Missing:{}",
+                "fail:Missing:错误: 未知工具 'Missing'"
+        ), events);
     }
 
     private static final class StrictTool implements Tools.Tool {

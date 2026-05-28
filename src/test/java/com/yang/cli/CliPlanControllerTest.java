@@ -52,8 +52,8 @@ class CliPlanControllerTest {
         assertTrue(act.contains("任务结果"));
         assertTrue(act.contains("ok"));
         assertFalse(controller.isActive());
-        assertTrue(progress.stream().anyMatch(s -> s.contains("🔧 SubAgent(") && s.contains("id=T1")));
-        assertTrue(progress.stream().anyMatch(s -> s.contains("T1") && s.contains("完成")));
+        assertTrue(progress.stream().anyMatch(s -> s.equals("▶ T1 FILE_READ read files")));
+        assertTrue(progress.stream().anyMatch(s -> s.equals("✅ T1 FILE_READ read files 完成")));
         assertEquals(2, changed.get());
 
         assertEquals("❌ 已取消当前计划。", controller.cancel());

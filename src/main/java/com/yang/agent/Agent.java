@@ -336,13 +336,33 @@ public class Agent {
         session.saveQuietly(messages);
     }
 
-    private BiConsumer<String, Map<String, Object>> toolCallback(BiConsumer<String, Map<String, Object>> onTool) {
-        return (name, args) -> {
-            Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("name", name);
-            payload.put("arguments", args == null ? Map.of() : args);
-            recordEvent("tool_call", payload);
-            if (onTool != null) onTool.accept(name, args);
+    private ToolExecutor.ToolObserver toolCallback(BiConsumer<String, Map<String, Object>> onTool) {
+        ToolExecutor.ToolObserver observer = onTool instanceof ToolExecutor.ToolObserver toolObserver ? toolObserver : null;
+        return new ToolExecutor.ToolObserver() {
+            @Override
+            public void accept(String name, Map<String, Object> args) {
+                Map<String, Object> payload = new LinkedHashMap<>();
+                payload.put("name", name);
+                payload.put("arguments", args == null ? Map.of() : args);
+                recordEvent("tool_call", payload);
+                if (onTool != null) onTool.accept(name, args);
+            }
+
+            @Override
+            public void finished(String name, Map<String, Object> args, boolean success, long elapsedNanos, String result) {
+                Map<String, Object> payload = new LinkedHashMap<>();
+                payload.put("name", name);
+                payload.put("success", success);
+                payload.put("elapsed_ms", Math.max(0, elapsedNanos / 1_000_000));
+                payload.put("result", briefResult(result));
+                recordEvent("tool_result", payload);
+                if (observer != null) observer.finished(name, args, success, elapsedNanos, result);
+            }
         };
+    }
+
+    private static String briefResult(String text) {
+        String s = text == null ? "" : text.replaceAll("\\s+", " ").strip();
+        return s.length() > 200 ? s.substring(0, 200) + "..." : s;
     }
 }

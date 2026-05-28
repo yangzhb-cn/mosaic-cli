@@ -4,9 +4,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -27,8 +29,8 @@ class PlanRunnerTest {
 
         assertEquals(List.of("T1", "T2"), order);
         assertTrue(plan.allCompleted());
-        assertTrue(progress.stream().anyMatch(s -> s.contains("🔧 SubAgent(") && s.contains("id=T1") && s.contains("task=first")));
-        assertTrue(progress.stream().anyMatch(s -> s.contains("T2") && s.contains("完成")));
+        assertTrue(progress.stream().anyMatch(s -> s.equals("▶ T1 FILE_READ first")));
+        assertTrue(progress.stream().anyMatch(s -> s.equals("✅ T2 ANALYSIS second 完成")));
     }
 
     @Test
@@ -91,6 +93,29 @@ class PlanRunnerTest {
     }
 
     @Test
+    void progressMessagesIncludeStableTaskDetails() throws Exception {
+        ExecutionPlan plan = new ExecutionPlan("task", List.of(
+                new PlanTask("T1", "flaky analysis task", TaskType.ANALYSIS, List.of()),
+                new PlanTask("T2", "failing command task", TaskType.COMMAND, List.of("T1"))
+        ));
+        AtomicInteger t1Attempts = new AtomicInteger();
+        List<String> progress = new ArrayList<>();
+
+        PlanRunResult result = new PlanRunner((task, ignored, onProgress) -> {
+            if (task.id().equals("T1") && t1Attempts.incrementAndGet() == 1) return "错误: first";
+            if (task.id().equals("T2")) return "错误: boom";
+            return "ok";
+        }, 1).run(plan, progress::add);
+
+        assertFalse(result.success());
+        assertTrue(progress.stream().anyMatch(s -> s.equals("▶ T1 ANALYSIS flaky analysis task")));
+        assertTrue(progress.stream().anyMatch(s -> s.equals("🔁 T1 ANALYSIS flaky analysis task 重试 2/3")));
+        assertTrue(progress.stream().anyMatch(s -> s.equals("✅ T1 ANALYSIS flaky analysis task 完成")));
+        assertTrue(progress.stream().anyMatch(s -> s.equals("▶ T2 COMMAND failing command task")));
+        assertTrue(progress.stream().anyMatch(s -> s.equals("❌ T2 COMMAND failing command task 失败: 错误: boom")));
+    }
+
+    @Test
     void subAgentPromptIncludesResearchBudgetAndDateRules() throws Exception {
         CapturingAgent agent = new CapturingAgent();
         ExecutionPlan plan = new ExecutionPlan("查看今天的热点AI新闻", List.of(
@@ -107,6 +132,21 @@ class PlanRunnerTest {
         assertEquals(8, agent.maxRounds);
     }
 
+    @Test
+    void subAgentToolResultsAreForwardedToPlanProgress() throws Exception {
+        ToolReportingAgent agent = new ToolReportingAgent();
+        ExecutionPlan plan = new ExecutionPlan("task", List.of(
+                new PlanTask("T1", "read", TaskType.FILE_READ, List.of())
+        ));
+        List<String> progress = new ArrayList<>();
+
+        PlanRunResult result = new PlanRunner(agent).run(plan, progress::add);
+
+        assertTrue(result.success());
+        assertTrue(progress.stream().anyMatch(s -> s.contains("🔧 SubAgent(T1).Read start(path=a.txt)")));
+        assertTrue(progress.stream().anyMatch(s -> s.contains("✅ SubAgent(T1).Read done 12ms, 5B")));
+    }
+
     private static final class CapturingAgent extends com.yang.agent.Agent {
         private String task;
         private int maxRounds;
@@ -119,6 +159,21 @@ class PlanRunnerTest {
         public String runSubAgent(String task, int maxRounds, java.util.function.BiConsumer<String, java.util.Map<String, Object>> onTool) {
             this.task = task;
             this.maxRounds = maxRounds;
+            return "ok";
+        }
+    }
+
+    private static final class ToolReportingAgent extends com.yang.agent.Agent {
+        private ToolReportingAgent() {
+            super(new com.yang.llm.LlmClient("test-model", "key", "http://localhost", 0), 128000);
+        }
+
+        @Override
+        public String runSubAgent(String task, int maxRounds, BiConsumer<String, Map<String, Object>> onTool) {
+            onTool.accept("Read", Map.of("path", "a.txt"));
+            if (onTool instanceof com.yang.tool.ToolExecutor.ToolObserver observer) {
+                observer.finished("Read", Map.of("path", "a.txt"), true, 12_000_000L, "hello");
+            }
             return "ok";
         }
     }

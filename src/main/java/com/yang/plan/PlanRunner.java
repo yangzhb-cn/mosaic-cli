@@ -2,6 +2,7 @@ package com.yang.plan;
 
 import com.yang.agent.Agent;
 import com.yang.prompt.Prompt;
+import com.yang.tool.ToolExecutor;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -11,7 +12,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /** 按 DAG 依赖并行执行计划任务，并处理重试、写任务串行和失败停止。 */
@@ -57,7 +57,7 @@ public final class PlanRunner {
                 if (!stopScheduling) {
                     for (PlanTask task : plan.readyTasks()) {
                         task.markRunning();
-                        progress(onProgress, subAgentCall(task));
+                        progress(onProgress, "▶ " + taskLabel(task));
                         running.put(task, pool.submit(() -> runWithRetry(task, plan, onProgress)));
                     }
                 }
@@ -69,10 +69,10 @@ public final class PlanRunner {
                     TaskResult result = get(entry.getValue());
                     if (result.success()) {
                         entry.getKey().markCompleted(result.output());
-                        progress(onProgress, "✅ " + entry.getKey().id() + " 完成");
+                        progress(onProgress, "✅ " + taskLabel(entry.getKey()) + " 完成");
                     } else {
                         entry.getKey().markFailed(result.output());
-                        progress(onProgress, "❌ " + entry.getKey().id() + " 失败: " + result.output());
+                        progress(onProgress, "❌ " + taskLabel(entry.getKey()) + " 失败: " + brief(result.output()));
                         if (failure == null) failure = entry.getKey().id() + " 失败: " + result.output();
                         stopScheduling = true;
                     }
@@ -88,7 +88,7 @@ public final class PlanRunner {
     private TaskResult runWithRetry(PlanTask task, ExecutionPlan plan, Consumer<String> onProgress) {
         String last = "";
         for (int i = 0; i < MAX_ATTEMPTS; i++) {
-            if (i > 0) progress(onProgress, "🔁 " + task.id() + " 重试 " + (i + 1) + "/" + MAX_ATTEMPTS);
+            if (i > 0) progress(onProgress, "🔁 " + taskLabel(task) + " 重试 " + (i + 1) + "/" + MAX_ATTEMPTS);
             task.incrementAttempts();
             try {
                 String result = execute(task, plan, onProgress);
@@ -130,10 +130,11 @@ public final class PlanRunner {
         }
     }
 
-    private static String subAgentCall(PlanTask task) {
-        return "🔧 SubAgent(id=" + task.id()
-                + ", type=" + task.type()
-                + ", task=" + brief(task.description()) + ")";
+    private static String taskLabel(PlanTask task) {
+        String description = brief(task.description());
+        return description.isBlank()
+                ? task.id() + " " + task.type()
+                : task.id() + " " + task.type() + " " + description;
     }
 
     private static String brief(String text) {
@@ -141,8 +142,21 @@ public final class PlanRunner {
         return s.length() > 100 ? s.substring(0, 100) + "..." : s;
     }
 
-    private static BiConsumer<String, Map<String, Object>> subAgentToolReporter(PlanTask task, Consumer<String> onProgress) {
-        return (name, args) -> progress(onProgress, "🔧 SubAgent(" + task.id() + ")." + name + "(" + briefArgs(args) + ")");
+    private static ToolExecutor.ToolObserver subAgentToolReporter(PlanTask task, Consumer<String> onProgress) {
+        return new ToolExecutor.ToolObserver() {
+            @Override
+            public void accept(String name, Map<String, Object> args) {
+                progress(onProgress, "🔧 SubAgent(" + task.id() + ")." + name + " start(" + briefArgs(args) + ")");
+            }
+
+            @Override
+            public void finished(String name, Map<String, Object> args, boolean success, long elapsedNanos, String result) {
+                String status = success ? "✅" : "❌";
+                String outcome = success ? "done" : "fail";
+                progress(onProgress, status + " SubAgent(" + task.id() + ")." + name + " " + outcome + " "
+                        + elapsed(elapsedNanos) + ", " + (success ? size(result) : brief(result)));
+            }
+        };
     }
 
     private static String briefArgs(Map<String, Object> args) {
@@ -153,6 +167,16 @@ public final class PlanRunner {
                 .orElse("");
         s = s.replaceAll("\\s+", " ").strip();
         return s.length() > 100 ? s.substring(0, 100) + "..." : s;
+    }
+
+    private static String elapsed(long elapsedNanos) {
+        return Math.max(0, Math.round(elapsedNanos / 1_000_000d)) + "ms";
+    }
+
+    private static String size(String text) {
+        int bytes = (text == null ? "" : text).getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        if (bytes < 1024) return bytes + "B";
+        return String.format(java.util.Locale.ROOT, "%.1fKB", bytes / 1024d);
     }
 
     private static String prompt(PlanTask task, ExecutionPlan plan) {

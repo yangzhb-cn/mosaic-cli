@@ -5,7 +5,6 @@ import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.LineReader.Option;
 import org.jline.reader.UserInterruptException;
-import org.jline.reader.impl.completer.StringsCompleter;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 
@@ -14,8 +13,9 @@ import com.yang.llm.LlmClient;
 import com.yang.session.SessionManager;
 import com.yang.mcp.McpManager;
 
-import java.util.Locale;
-import java.util.Map;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /** 管理交互式 REPL、输入补全、普通聊天流式输出和 token 用量展示。 */
 public final class CliCommands {
@@ -32,11 +32,7 @@ public final class CliCommands {
 
         // 创建终端对象，构建输入读取器，绑定终端，设置命令补全，自动列出匹配的补全项，生成LineReader
         Terminal terminal = terminal();
-        LineReader reader = LineReaderBuilder.builder()
-                .terminal(terminal)
-                .completer(new StringsCompleter(CliRouter.commands()))
-                .option(Option.AUTO_LIST, true)
-                .build();
+        LineReader reader = buildReader(terminal, sessions);
 
         while (true) {
             String line;
@@ -63,6 +59,20 @@ public final class CliCommands {
         }
     }
 
+    static LineReader buildReader(Terminal terminal, SessionManager sessions) throws IOException {
+        Path dataDir = sessions == null ? Path.of("").toAbsolutePath().resolve("data") : sessions.dataDir();
+        Files.createDirectories(dataDir);
+        return LineReaderBuilder.builder()
+                .terminal(terminal)
+                .completer(new CliCommandCompleter(sessions))
+                .variable(LineReader.HISTORY_FILE, dataDir.resolve("cli-history"))
+                .variable(LineReader.HISTORY_SIZE, 1000)
+                .option(Option.AUTO_LIST, true)
+                .option(Option.HISTORY_IGNORE_DUPS, true)
+                .option(Option.HISTORY_IGNORE_SPACE, true)
+                .build();
+    }
+
     private static Terminal terminal() throws Exception {
         boolean interactive = System.console() != null;
 
@@ -78,70 +88,20 @@ public final class CliCommands {
 
     // 处理普通聊天输入。
     private static void chat(Agent agent, String line) throws Exception {
-        System.out.println("\n🤔 思考中...");
-        // 累积模型流式输出的内容
-        StringBuilder streamed = new StringBuilder();
+        CliStatusPrinter status = new CliStatusPrinter(System.out);
+        status.chatStarted();
         long started = System.nanoTime();
 
         // agent.chat(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool)
         // 真正发起一次聊天（涉及两次回调）
-        String response = agent.chatCli(line, tok -> {
-            String out = streamed.isEmpty() ? stripLeadingBlank(tok) : tok;
-            if (out.isEmpty()) {
-                return;
-            }
-            // 如果这是第一个有效 token，先打印一次 🤖 Agent:
-            if (streamed.isEmpty()) {
-                System.out.print("\n🤖 Agent: ");
-            }
-            // 把当前有效 token 加到缓冲区里
-            streamed.append(out);
-            // 同时直接打印到终端，这就是“边生成边显示”的流式效果
-            System.out.print(out);
-
-            // agent调用了工具就回调，打印工具名和参数摘要
-        }, (name, args) -> System.out.println("\n🔧 " + name + "(" + brief(args) + ")"));
+        String response = agent.chatCli(line, status::assistantToken, status);
 
         // 如果已经流式了，就打印空行，否则 response 兜底。多行内容单独换行，避免表格被前缀挤歪。
-        System.out.println(streamed.isEmpty() ? agentPrefix(response) : "");
-        printUsage(agent.lastTokenUsage(), System.nanoTime() - started);
-    }
-
-    private static void printUsage(Agent.TokenUsage usage, long elapsedNanos) {
-        System.out.println("\n📊 Token: 总输入=" + usage.promptTokens()
-                + "，缓存输入=" + usage.cachedPromptTokens()
-                + "，输出=" + usage.completionTokens()
-                + "，耗时=" + duration(elapsedNanos)
-                + "，上下文=" + usage.contextPercent() + "% used");
-    }
-
-    private static String duration(long elapsedNanos) {
-        double seconds = Math.max(0.001, elapsedNanos / 1_000_000_000d);
-        if (seconds < 60) return String.format(Locale.ROOT, "%.1fs", seconds);
-        long minutes = (long) (seconds / 60);
-        return minutes + "m " + String.format(Locale.ROOT, "%.1fs", seconds % 60);
+        status.chatFinished(response, agent.lastTokenUsage(), System.nanoTime() - started);
     }
 
     private static boolean isExit(String line) {
         return line.equals("/exit");
     }
 
-    // 丢弃模型回复开头的空格、制表符和空行，避免终端前缀后先换行。
-    private static String stripLeadingBlank(String text) {
-        return text == null ? "" : text.replaceFirst("^[\\s\\u3000]+", "");
-    }
-
-    private static String agentPrefix(String response) {
-        String text = stripLeadingBlank(response);
-        return text.contains("\n") ? "🤖 Agent:\n" + text : "🤖 Agent: " + text;
-    }
-
-    // 用来把工具参数压缩成一个简短字符串，方便打印
-    private static String brief(Map<String, Object> args) {
-        String s = args.entrySet().stream()
-                .map(e -> e.getKey() + "=" + e.getValue())
-                .reduce((a, b) -> a + ", " + b)
-                .orElse("");
-        return s.length() > 80 ? s.substring(0, 80) + "..." : s;
-    }
 }

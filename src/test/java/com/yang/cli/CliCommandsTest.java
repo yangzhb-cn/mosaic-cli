@@ -6,9 +6,14 @@ import com.yang.session.SessionManager;
 import com.yang.audit.ToolAudit;
 import com.yang.memory.MemoryManager;
 import com.yang.mcp.McpManager;
+import org.jline.reader.LineReader;
+import org.jline.reader.LineReader.Option;
+import org.jline.terminal.Terminal;
+import org.jline.terminal.TerminalBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -22,6 +27,25 @@ import static org.junit.jupiter.api.Assertions.*;
 class CliCommandsTest {
     @TempDir
     Path temp;
+
+    @Test
+    void readerUsesProjectLocalHistoryFile() throws Exception {
+        ByteArrayOutputStream terminalOut = new ByteArrayOutputStream();
+        Terminal terminal = TerminalBuilder.builder()
+                .dumb(true)
+                .streams(new ByteArrayInputStream(new byte[0]), terminalOut)
+                .build();
+        SessionManager sessions = new SessionManager(temp.resolve("data"));
+
+        LineReader reader = CliCommands.buildReader(terminal, sessions);
+
+        assertEquals(temp.resolve("data/cli-history").toAbsolutePath().normalize(), reader.getVariable(LineReader.HISTORY_FILE));
+        assertEquals(1000, reader.getVariable(LineReader.HISTORY_SIZE));
+        assertTrue(reader.isSet(Option.AUTO_LIST));
+        assertTrue(reader.isSet(Option.HISTORY_IGNORE_DUPS));
+        assertTrue(reader.isSet(Option.HISTORY_IGNORE_SPACE));
+        assertTrue(Files.isDirectory(temp.resolve("data")));
+    }
 
     @Test
     void mcpCommandPrintsStatus() throws Exception {

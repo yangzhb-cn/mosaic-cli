@@ -197,6 +197,10 @@ public final class SessionManager {
         return enabled ? activeId : "";
     }
 
+    public Path dataDir() {
+        return dataDir == null ? Path.of("").toAbsolutePath().resolve("data") : dataDir;
+    }
+
     private void ensureReady() throws IOException {
         Files.createDirectories(sessionsDir);
         migrateLegacySessions();

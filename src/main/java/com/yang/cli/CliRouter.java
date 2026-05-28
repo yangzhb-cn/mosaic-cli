@@ -14,33 +14,42 @@ import java.util.Map;
 
 /** 路由斜杠命令到对应处理逻辑，保持 REPL 类只负责终端交互。 */
 public final class CliRouter {
-    private static final List<Candidate> COMMANDS = List.of(
-            command("/reset", "清空当前对话"),
-            command("/tokens", "查看 token 使用情况"),
-            command("/compact", "压缩上下文"),
-            command("/diff", "查看当前会话修改了哪些文件"),
-            command("/mcp", "查看 MCP 加载状态"),
-            command("/plan", "进入计划生成模式"),
-            command("/act", "执行当前计划"),
-            command("/cancel", "取消当前计划"),
-            command("/audit", "查看当前对话工具调用统计"),
-            command("/audit save", "保存当前对话工具调用统计"),
-            command("/session", "查看当前会话用户消息"),
-            command("/session list", "列出所有会话"),
-            command("/session new", "创建并切换到新会话"),
-            command("/session switch", "切换到已有会话"),
-            command("/memory update", "提炼当前会话并更新长期记忆"),
-            command("/exit", "退出"));
+    private static final List<CommandSpec> COMMAND_SPECS = List.of(
+            new CommandSpec("/reset", "Core", "清空当前对话"),
+            new CommandSpec("/tokens", "Core", "查看 token 使用情况"),
+            new CommandSpec("/compact", "Core", "压缩上下文"),
+            new CommandSpec("/diff", "Core", "查看当前会话修改了哪些文件"),
+            new CommandSpec("/exit", "Core", "退出"),
+            new CommandSpec("/plan", "Plan", "进入计划生成模式"),
+            new CommandSpec("/act", "Plan", "执行当前计划"),
+            new CommandSpec("/cancel", "Plan", "取消当前计划"),
+            new CommandSpec("/mcp", "System", "查看 MCP 加载状态"),
+            new CommandSpec("/audit", "System", "查看当前对话工具调用统计"),
+            new CommandSpec("/audit save", "System", "保存当前对话工具调用统计"),
+            new CommandSpec("/memory update", "System", "提炼当前会话并更新长期记忆"),
+            new CommandSpec("/session", "Session", "查看当前会话用户消息"),
+            new CommandSpec("/session list", "Session", "列出所有会话"),
+            new CommandSpec("/session new", "Session", "创建并切换到新会话"),
+            new CommandSpec("/session switch", "Session", "切换到已有会话"));
+    private static final List<Candidate> COMMANDS = COMMAND_SPECS.stream()
+            .map(CliRouter::command)
+            .toList();
 
     private CliRouter() {
+    }
+
+    public record CommandSpec(String command, String group, String description) {}
+
+    public static List<CommandSpec> commandSpecs() {
+        return COMMAND_SPECS;
     }
 
     public static List<Candidate> commands() {
         return COMMANDS;
     }
 
-    private static Candidate command(String name, String description) {
-        return new Candidate(name, name, null, description, null, null, true);
+    private static Candidate command(CommandSpec spec) {
+        return new Candidate(spec.command(), spec.command(), spec.group(), spec.description(), null, null, true);
     }
 
     public static boolean handle(String line, Agent agent, LlmClient llm, SessionManager sessions) throws Exception {
@@ -91,7 +100,8 @@ public final class CliRouter {
             return true;
         }
         if (line.equals("/act")) {
-            System.out.println(agent.actPlan(System.out::println));
+            CliStatusPrinter status = new CliStatusPrinter(System.out);
+            System.out.println(agent.actPlan(status::planProgress));
             return true;
         }
         if (line.equals("/cancel")) {
