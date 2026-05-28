@@ -36,7 +36,7 @@ public class Config {
         c.apiKey = value(env, file, "DEEPSEEK_API_KEY", c.apiKey);
         c.baseUrl = value(env, file, "DEEPSEEK_BASE_URL", c.baseUrl);
         c.scheduleIntervalSeconds = integer(value(env, file, "MOSAIC_SCHEDULE_INTERVAL_SECONDS", String.valueOf(c.scheduleIntervalSeconds)), c.scheduleIntervalSeconds);
-        c.im = value(env, file, "MISAIC_IM", c.im);
+        c.im = first(env, file, List.of("MOSAIC_IM", "MISAIC_IM"), c.im);
         c.telegramBotToken = value(env, file, "TELEGRAM_BOT_TOKEN", c.telegramBotToken);
         c.telegramOwnerId = first(env, file, List.of("TELEGRAM_OWNER_ID", "OWNER_ID"), c.telegramOwnerId);
         if (c.im.isBlank() && !c.telegramBotToken.isBlank() && !c.telegramOwnerId.isBlank()) c.im = "telegram";

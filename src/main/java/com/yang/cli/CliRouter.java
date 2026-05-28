@@ -5,7 +5,6 @@ import com.yang.llm.LlmClient;
 import com.yang.context.ContextManager;
 import com.yang.mcp.McpManager;
 import com.yang.session.SessionManager;
-import com.yang.tool.Tools;
 import org.jline.reader.Candidate;
 
 import java.nio.file.Path;
@@ -79,10 +78,10 @@ public final class CliRouter {
             return true;
         }
         if (line.equals("/diff")) {
-            if (Tools.changedFiles().isEmpty()) {
+            if (agent.changedFiles().isEmpty()) {
                 System.out.println("📄 本会话没有修改文件。");
             } else {
-                Tools.changedFiles().stream().sorted().forEach(f -> System.out.println("  📝 " + f));
+                agent.changedFiles().stream().sorted().forEach(f -> System.out.println("  📝 " + f));
             }
             return true;
         }

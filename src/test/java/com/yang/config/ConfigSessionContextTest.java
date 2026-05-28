@@ -37,6 +37,7 @@ class ConfigSessionContextTest {
                 DEEPSEEK_API_KEY=file-key
                 DEEPSEEK_MODEL=file-model
                 DEEPSEEK_BASE_URL=https://file.example/v1
+                MOSAIC_IM=telegram
                 TELEGRAM_BOT_TOKEN=file-token
                 OWNER_ID=file-owner
                 """);

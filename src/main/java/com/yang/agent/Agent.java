@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -29,6 +30,7 @@ import com.yang.session.SessionManager;
 import com.yang.session.SessionRuntime;
 import com.yang.skill.Skill;
 import com.yang.tool.ToolExecutor;
+import com.yang.tool.ToolState;
 import com.yang.tool.Tools;
 
 /** 核心 ReAct Agent，维护会话消息并协调 LLM、工具、上下文压缩和子 Agent。 */
@@ -46,6 +48,7 @@ public class Agent {
     private final PromptMessageBuilder promptBuilder;
     private final SubAgentRunner subAgents;
     private final CliPlanController planController;
+    private final ToolState toolState = new ToolState();
     private TokenUsage lastTokenUsage = new TokenUsage(0, 0, 0, 0, 0);
 
     /** 记录最近一次回复的 token 用量和上下文占用比例。 */
@@ -90,11 +93,11 @@ public class Agent {
         this.context = new ContextManager(maxContextTokens);
         // 最多允许模型-工具循环多少轮
         this.maxRounds = 50;
-        this.tools = Tools.all(this, extraTools, skillList);
+        this.tools = Tools.all(this, extraTools, skillList, toolState);
         this.toolExecutor = new ToolExecutor(tools, this.session.audit());
         this.promptBuilder = new PromptMessageBuilder(tools, skillList, this.session.memory());
         this.subAgents = new SubAgentRunner(llm, tools, context.maxTokens, skillList, this.session.audit(), this.session.memory());
-        this.planController = new CliPlanController(new PlannerAgent(llm, this.session.audit()), new PlanRunner(this), messages, this::messagesChanged, llm);
+        this.planController = new CliPlanController(new PlannerAgent(llm, this.session.audit()), new PlanRunner(this), messages, this::messagesChanged, llm, this::changedFiles);
     }
 
     //  子 Agen 构造函数
@@ -130,7 +133,7 @@ public class Agent {
         this.toolExecutor = new ToolExecutor(tools, this.session.audit());
         this.promptBuilder = new PromptMessageBuilder(tools, skillList, this.session.memory());
         this.subAgents = new SubAgentRunner(llm, tools, context.maxTokens, skillList, this.session.audit(), this.session.memory());
-        this.planController = new CliPlanController(new PlannerAgent(llm, this.session.audit()), new PlanRunner(this), messages, this::messagesChanged, llm);
+        this.planController = new CliPlanController(new PlannerAgent(llm, this.session.audit()), new PlanRunner(this), messages, this::messagesChanged, llm, this::changedFiles);
     }
 
     public synchronized String chatCli(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool) throws Exception {
@@ -278,6 +281,10 @@ public class Agent {
         return scheduleStore;
     }
 
+    public Set<String> changedFiles() {
+        return toolState.changedFiles();
+    }
+
     public String currentImChatId() {
         return im.currentChatId();
     }
@@ -294,6 +301,7 @@ public class Agent {
     public synchronized void reset() {
         messages.clear();
         planController.clear();
+        toolState.clear();
         session.resetAudit();
         lastTokenUsage = new TokenUsage(0, 0, 0, 0, context.maxTokens);
         try {
@@ -310,6 +318,7 @@ public class Agent {
         messages.clear();
         messages.addAll(loadedMessages == null ? List.of() : loadedMessages);
         planController.clear();
+        toolState.clear();
         session.loadAudit(conversationId, auditRecords);
         lastTokenUsage = new TokenUsage(0, 0, 0, ContextManager.estimateTokens(messages), context.maxTokens);
     }

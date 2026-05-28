@@ -8,6 +8,16 @@ import java.util.Map;
 // 一个文件内多处精确替换，全部成功才写入
 /** MultiEdit 工具实现，对同一文件按顺序执行多处文本替换。 */
 public final class MultiEditTool extends ToolBase {
+    private final ToolState state;
+
+    public MultiEditTool() {
+        this(new ToolState());
+    }
+
+    public MultiEditTool(ToolState state) {
+        this.state = state == null ? new ToolState() : state;
+    }
+
     @Override
     public String name() { return "MultiEdit"; }
 
@@ -88,7 +98,7 @@ public final class MultiEditTool extends ToolBase {
                 next = next.replace(oldString, newString);
             }
             Files.writeString(p, next);
-            Tools.markChanged(p);
+            state.markChanged(p);
             return "已对 " + p + " 应用 " + mapList(args.get("edits")).size() + " 处编辑";
         } catch (Exception e) {
             return "错误: " + e.getMessage();

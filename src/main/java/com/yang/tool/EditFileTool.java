@@ -8,6 +8,16 @@ import java.util.Map;
 // 单点精确字符串替换，校验替换次数
 /** Edit 工具实现，对文件中的唯一文本片段做单次替换。 */
 public final class EditFileTool extends ToolBase {
+    private final ToolState state;
+
+    public EditFileTool() {
+        this(new ToolState());
+    }
+
+    public EditFileTool(ToolState state) {
+        this.state = state == null ? new ToolState() : state;
+    }
+
     @Override
     public String name() { return "Edit"; }
 
@@ -47,7 +57,7 @@ public final class EditFileTool extends ToolBase {
             if (count != expected) return "错误: 期望替换 " + expected + " 处，实际找到 " + count + " 处";
             String next = old.replace(oldString, newString);
             Files.writeString(p, next);
-            Tools.markChanged(p);
+            state.markChanged(p);
             return "已编辑 " + file + "\n" + diff(old, next, p.toString());
         } catch (Exception e) {
             return "错误: " + e.getMessage();

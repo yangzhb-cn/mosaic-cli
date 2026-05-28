@@ -8,6 +8,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.yang.im.ImClient;
 import com.yang.im.ImMessage;
 import com.yang.skill.Skill;
+import com.yang.tool.ToolState;
 import com.yang.tool.Tools;
 import com.yang.tool.WebSearchTool;
 
@@ -81,7 +82,8 @@ class ToolsTest {
 
     @Test
     void readWriteAndEditFiles() throws Exception {
-        List<Tools.Tool> tools = Tools.all(null);
+        ToolState state = new ToolState();
+        List<Tools.Tool> tools = Tools.all(null, List.of(), List.of(), state);
         Path file = temp.resolve("sample.txt");
 
         assertTrue(Tools.get(tools, "Write").execute(Map.of(
@@ -99,7 +101,7 @@ class ToolsTest {
         assertTrue(edited.contains("已编辑"));
         assertTrue(edited.contains("---"));
         assertEquals("alpha\ngamma\n", Files.readString(file));
-        assertTrue(Tools.changedFiles().contains(file.toAbsolutePath().normalize().toString()));
+        assertTrue(state.changedFiles().contains(file.toAbsolutePath().normalize().toString()));
     }
 
     @Test
@@ -163,14 +165,34 @@ class ToolsTest {
 
     @Test
     void todoToolsStoreSessionTodos() {
+        ToolState state = new ToolState();
+        List<Tools.Tool> tools = Tools.all(null, List.of(), List.of(), state);
         List<Map<String, Object>> todos = List.of(Map.of(
                 "id", "1",
                 "content", "test todo",
                 "status", "in_progress",
                 "priority", "high"
         ));
-        assertTrue(Tools.get(Tools.all(null), "TodoWrite").execute(Map.of("todos", todos)).contains("1"));
-        assertTrue(Tools.get(Tools.all(null), "TodoRead").execute(Map.of()).contains("test todo"));
+        assertTrue(Tools.get(tools, "TodoWrite").execute(Map.of("todos", todos)).contains("1"));
+        assertTrue(Tools.get(tools, "TodoRead").execute(Map.of()).contains("test todo"));
+    }
+
+    @Test
+    void toolStateIsScopedToToolList() {
+        ToolState first = new ToolState();
+        ToolState second = new ToolState();
+        List<Tools.Tool> firstTools = Tools.all(null, List.of(), List.of(), first);
+        List<Tools.Tool> secondTools = Tools.all(null, List.of(), List.of(), second);
+
+        Tools.get(firstTools, "TodoWrite").execute(Map.of("todos", List.of(Map.of(
+                "id", "1",
+                "content", "first",
+                "status", "pending",
+                "priority", "low"
+        ))));
+
+        assertTrue(Tools.get(firstTools, "TodoRead").execute(Map.of()).contains("first"));
+        assertFalse(Tools.get(secondTools, "TodoRead").execute(Map.of()).contains("first"));
     }
 
     @Test

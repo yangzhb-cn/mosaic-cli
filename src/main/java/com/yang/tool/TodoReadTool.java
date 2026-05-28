@@ -3,9 +3,19 @@ package com.yang.tool;
 import java.util.List;
 import java.util.Map;
 
-// 读取当前 JVM 会话里的 todo 列表
-/** TodoRead 工具实现，读取当前进程内的 todo 列表。 */
+// 读取当前 Agent 会话里的 todo 列表
+/** TodoRead 工具实现，读取当前 Agent 的 todo 列表。 */
 public final class TodoReadTool extends ToolBase {
+    private final ToolState state;
+
+    public TodoReadTool() {
+        this(new ToolState());
+    }
+
+    public TodoReadTool(ToolState state) {
+        this.state = state == null ? new ToolState() : state;
+    }
+
     @Override
     public String name() { return "TodoRead"; }
 
@@ -41,6 +51,6 @@ public final class TodoReadTool extends ToolBase {
 
     @Override
     public String execute(Map<String, Object> args) {
-        return Tools.todosJson();
+        return state.todosJson();
     }
 }

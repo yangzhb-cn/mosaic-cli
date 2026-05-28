@@ -7,6 +7,16 @@ import java.util.Map;
 // 写入/覆盖文件，并记录 changed file
 /** Write 工具实现，写入完整文件内容并记录变更文件。 */
 public final class WriteFileTool extends ToolBase {
+    private final ToolState state;
+
+    public WriteFileTool() {
+        this(new ToolState());
+    }
+
+    public WriteFileTool(ToolState state) {
+        this.state = state == null ? new ToolState() : state;
+    }
+
     @Override
     public String name() { return "Write"; }
     @Override
@@ -38,7 +48,7 @@ public final class WriteFileTool extends ToolBase {
                 Files.createDirectories(p.getParent());
             }
             Files.writeString(p, content);
-            Tools.markChanged(p);
+            state.markChanged(p);
             long lines = content.chars().filter(ch -> ch == '\n').count() + (content.isEmpty() || content.endsWith("\n") ? 0 : 1);
             return "已写入 " + lines + " 行到 " + file;
         } catch (Exception e) {

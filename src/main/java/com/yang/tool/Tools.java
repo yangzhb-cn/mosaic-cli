@@ -3,26 +3,15 @@ package com.yang.tool;
 import com.yang.agent.Agent;
 import com.yang.schedule.ScheduleTools;
 import com.yang.skill.Skill;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** 注册内置工具、MCP/Skill 扩展工具，并保存工具共享状态。 */
+/** 注册内置工具、MCP/Skill 扩展工具。 */
 public final class Tools {
-
-    // 用于把 todo 列表转成 JSON 字符串
-    private static final ObjectMapper JSON = new ObjectMapper();
-    // 记录被修改过的文件路径
-    private static final Set<String> CHANGED = new LinkedHashSet<>();
-    // 保存待办事项列表
-    private static final List<Map<String, Object>> TODOS = new ArrayList<>();
-
     // 禁止外部实例化，说明它是一个纯工具类
     private Tools() {
     }
@@ -50,27 +39,32 @@ public final class Tools {
 
     // 注册全部工具
     public static List<Tool> all(Agent parent) {
-        return all(parent, List.of());
+        return all(parent, List.of(), List.of(), new ToolState());
     }
 
     public static List<Tool> all(Agent parent, List<Tool> extraTools) {
-        return all(parent, extraTools, List.of());
+        return all(parent, extraTools, List.of(), new ToolState());
     }
 
     public static List<Tool> all(Agent parent, List<Tool> extraTools, List<Skill> skills) {
+        return all(parent, extraTools, skills, new ToolState());
+    }
+
+    public static List<Tool> all(Agent parent, List<Tool> extraTools, List<Skill> skills, ToolState state) {
+        ToolState toolState = state == null ? new ToolState() : state;
         List<Tool> tools = new ArrayList<>(List.of(
                 new BashTool(),
                 new GlobTool(),
                 new GrepTool(),
                 new LsTool(),
                 new ReadFileTool(),
-                new EditFileTool(),
-                new MultiEditTool(),
-                new WriteFileTool(),
+                new EditFileTool(toolState),
+                new MultiEditTool(toolState),
+                new WriteFileTool(toolState),
                 new WebFetchTool(),
                 new WebSearchTool(),
-                new TodoReadTool(),
-                new TodoWriteTool(),
+                new TodoReadTool(toolState),
+                new TodoWriteTool(toolState),
                 new AgentTool(parent)
         ));
         tools.addAll(ScheduleTools.tools(parent));
@@ -95,33 +89,5 @@ public final class Tools {
             }
         }
         return null;
-    }
-
-    // 记录修改过的文件
-    public static Set<String> changedFiles() {
-        return CHANGED;
-    }
-
-    public static void markChanged(Path path) {
-        CHANGED.add(path.toString());
-    }
-
-    // 管理 todo 列表
-    public static void replaceTodos(List<Map<String, Object>> todos) {
-        // “当前状态”，不是增量累积
-        TODOS.clear();
-        TODOS.addAll(todos);
-    }
-
-    public static int todoCount() {
-        return TODOS.size();
-    }
-
-    public static String todosJson() {
-        try {
-            return JSON.writerWithDefaultPrettyPrinter().writeValueAsString(TODOS);
-        } catch (JsonProcessingException e) {
-            return "[]";
-        }
     }
 }

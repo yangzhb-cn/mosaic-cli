@@ -50,21 +50,21 @@ mvn -DskipTests package
 启动：
 
 ```bash
-java -jar target/mosic-cli-0.1.0.jar
+java -jar target/mosaic-cli-0.1.0.jar
 ```
 
 Mosaic CLI 会把启动时所在目录当作工作目录。要处理别的项目，就在目标项目目录里运行 jar：
 
 ```bash
 cd /path/to/your/project
-java -jar /path/to/mosaic-cli/target/mosic-cli-0.1.0.jar
+java -jar /path/to/mosaic-cli/target/mosaic-cli-0.1.0.jar
 ```
 
 也可以加一个 shell 函数：
 
 ```bash
 mosaic() {
-  java -jar /path/to/mosaic-cli/target/mosic-cli-0.1.0.jar "$@"
+  java -jar /path/to/mosaic-cli/target/mosaic-cli-0.1.0.jar "$@"
 }
 ```
 
@@ -89,6 +89,7 @@ TAVILY_API_KEY=your_tavily_key
 
 TELEGRAM_BOT_TOKEN=your_bot_token
 OWNER_ID=your_user_id
+MOSAIC_IM=telegram
 
 MOSAIC_SCHEDULE_INTERVAL_SECONDS=30
 ```
@@ -98,7 +99,7 @@ MOSAIC_SCHEDULE_INTERVAL_SECONDS=30
 - `DEEPSEEK_API_KEY`：必填，启动 CLI 需要。
 - `TAVILY_API_KEY`：可选，只在使用 `WebSearch` 时需要。
 - `MOSAIC_SCHEDULE_INTERVAL_SECONDS`：后台定时任务扫描间隔，默认 30 秒。
-- Telegram 配置可选；同时配置 `TELEGRAM_BOT_TOKEN` 和 `OWNER_ID` 后会自动启用。
+- Telegram 配置可选；同时配置 `TELEGRAM_BOT_TOKEN` 和 `OWNER_ID` 后会自动启用，也可显式设置 `MOSAIC_IM=telegram`。
 
 ## MCP 与 Skills
 
@@ -223,6 +224,12 @@ mvn test
 
 ```bash
 mvn clean test
+```
+
+一键本地检查：
+
+```bash
+./scripts/check.sh
 ```
 
 打包可执行 fat jar：

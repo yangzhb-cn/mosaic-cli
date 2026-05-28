@@ -6,6 +6,16 @@ import java.util.Map;
 // 替换当前 todo 列表
 /** TodoWrite 工具实现，用模型提供的列表替换当前 todo 状态。 */
 public final class TodoWriteTool extends ToolBase {
+    private final ToolState state;
+
+    public TodoWriteTool() {
+        this(new ToolState());
+    }
+
+    public TodoWriteTool(ToolState state) {
+        this.state = state == null ? new ToolState() : state;
+    }
+
     @Override
     public String name() { return "TodoWrite"; }
 
@@ -199,7 +209,7 @@ public final class TodoWriteTool extends ToolBase {
 
     @Override
     public String execute(Map<String, Object> args) {
-        Tools.replaceTodos(mapList(args.get("todos")));
-        return "待办已更新: " + Tools.todoCount();
+        state.replaceTodos(mapList(args.get("todos")));
+        return "待办已更新: " + state.todoCount();
     }
 }

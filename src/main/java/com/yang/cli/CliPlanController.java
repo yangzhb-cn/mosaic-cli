@@ -8,12 +8,13 @@ import com.yang.plan.PlanRunner;
 import com.yang.plan.PlanSession;
 import com.yang.plan.PlannerAgent;
 import com.yang.plan.TaskStatus;
-import com.yang.tool.Tools;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /** 管理 CLI 规划流程，把 /plan 输入、DAG 生成、执行和取消串起来。 */
 public final class CliPlanController {
@@ -29,17 +30,23 @@ public final class CliPlanController {
     private final List<Map<String, Object>> messages;
     private final Runnable onMessagesChanged;
     private final LlmClient llm;
+    private final Supplier<Set<String>> changedFiles;
 
     public CliPlanController(PlannerAgent plannerAgent, PlanRunner planRunner, List<Map<String, Object>> messages, Runnable onMessagesChanged) {
         this(plannerAgent, planRunner, messages, onMessagesChanged, null);
     }
 
     public CliPlanController(PlannerAgent plannerAgent, PlanRunner planRunner, List<Map<String, Object>> messages, Runnable onMessagesChanged, LlmClient llm) {
+        this(plannerAgent, planRunner, messages, onMessagesChanged, llm, Set::of);
+    }
+
+    public CliPlanController(PlannerAgent plannerAgent, PlanRunner planRunner, List<Map<String, Object>> messages, Runnable onMessagesChanged, LlmClient llm, Supplier<Set<String>> changedFiles) {
         this.plannerAgent = plannerAgent;
         this.planRunner = planRunner;
         this.messages = messages;
         this.onMessagesChanged = onMessagesChanged == null ? () -> {} : onMessagesChanged;
         this.llm = llm;
+        this.changedFiles = changedFiles == null ? Set::of : changedFiles;
     }
 
     public String chatCli(String userInput, Consumer<String> onToken, BiConsumer<String, Map<String, Object>> onTool, ChatHandler fallback) throws Exception {
@@ -99,9 +106,9 @@ public final class CliPlanController {
                         .append(taskSummary(task))
                         .append('\n');
             }
-            if (!Tools.changedFiles().isEmpty()) {
+            if (!changedFiles().isEmpty()) {
                 out.append("\n\n📝 Changed files:\n");
-                Tools.changedFiles().stream().sorted().forEach(f -> out.append("- ").append(f).append('\n'));
+                changedFiles().stream().sorted().forEach(f -> out.append("- ").append(f).append('\n'));
             }
             String response = out.toString().stripTrailing();
             messages.add(Map.of("role", "assistant", "content", response));
@@ -128,7 +135,7 @@ public final class CliPlanController {
         return text.length() > 300 ? text.substring(0, 300) + "..." : text;
     }
 
-    private static String summary(ExecutionPlan plan, PlanRunResult result) {
+    private String summary(ExecutionPlan plan, PlanRunResult result) {
         long completed = plan.tasks().stream().filter(t -> t.status() == TaskStatus.COMPLETED).count();
         long failed = plan.tasks().stream().filter(t -> t.status() == TaskStatus.FAILED).count();
         long pending = plan.tasks().stream().filter(t -> t.status() == TaskStatus.PENDING).count();
@@ -144,8 +151,8 @@ public final class CliPlanController {
         if (!keyResult.isBlank()) {
             out.append("- 结果：").append(keyResult).append('\n');
         }
-        if (!Tools.changedFiles().isEmpty()) {
-            out.append("- 修改文件：").append(Tools.changedFiles().size()).append(" 个\n");
+        if (!changedFiles().isEmpty()) {
+            out.append("- 修改文件：").append(changedFiles().size()).append(" 个\n");
         }
         return out.toString().stripTrailing();
     }
@@ -160,7 +167,7 @@ public final class CliPlanController {
         }
     }
 
-    private static List<Map<String, Object>> summaryMessages(ExecutionPlan plan, PlanRunResult result) {
+    private List<Map<String, Object>> summaryMessages(ExecutionPlan plan, PlanRunResult result) {
         return List.of(
                 Map.of("role", "system", "content", """
                         你是 MosaicCoder 的执行总结器。只根据用户计划执行结果总结，不编造未提供的信息。
@@ -171,7 +178,7 @@ public final class CliPlanController {
         );
     }
 
-    private static String summaryInput(ExecutionPlan plan, PlanRunResult result) {
+    private String summaryInput(ExecutionPlan plan, PlanRunResult result) {
         StringBuilder out = new StringBuilder();
         out.append("原始目标：").append(plan.task()).append('\n');
         out.append("执行状态：").append(result.success() ? "成功" : "停止").append('\n');
@@ -184,11 +191,15 @@ public final class CliPlanController {
                     .append(taskSummary(task))
                     .append('\n');
         }
-        if (!Tools.changedFiles().isEmpty()) {
+        if (!changedFiles().isEmpty()) {
             out.append("修改文件：\n");
-            Tools.changedFiles().stream().sorted().forEach(f -> out.append("- ").append(f).append('\n'));
+            changedFiles().stream().sorted().forEach(f -> out.append("- ").append(f).append('\n'));
         }
         return out.toString();
+    }
+
+    private Set<String> changedFiles() {
+        return changedFiles.get();
     }
 
     private static String keyResult(ExecutionPlan plan) {
